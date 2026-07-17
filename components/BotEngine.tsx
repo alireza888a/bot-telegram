@@ -27,15 +27,39 @@ const broadcastLog = (user: string, text: string, type: 'incoming' | 'outgoing' 
 const saveUserToAudience = (user: any) => {
     try {
         const users = JSON.parse(localStorage.getItem('bot_users') || '[]');
-        if (!users.find((u: any) => u.id === user.id)) {
+        const today = new Date().toISOString().split('T')[0];
+        const userIdStr = String(user.id);
+        const existingIndex = users.findIndex((u: any) => String(u.id) === userIdStr);
+        
+        if (existingIndex === -1) {
             users.push({ 
-                id: user.id, 
-                first_name: user.first_name, 
-                username: user.username,
-                joined_at: Date.now()
+                id: userIdStr, 
+                firstName: user.first_name || 'کاربر', 
+                first_name: user.first_name || 'کاربر', 
+                lastName: user.last_name || '',
+                last_name: user.last_name || '',
+                username: user.username || '',
+                joinedAt: today,
+                joined_at: Date.now(),
+                lastActive: today,
+                messagesCount: 1,
+                status: 'active',
+                tags: []
             });
-            localStorage.setItem('bot_users', JSON.stringify(users));
+        } else {
+            const existing = users[existingIndex];
+            users[existingIndex] = {
+                ...existing,
+                firstName: existing.firstName || existing.first_name || user.first_name || 'کاربر',
+                first_name: existing.firstName || existing.first_name || user.first_name || 'کاربر',
+                lastName: existing.lastName || existing.last_name || user.last_name || '',
+                last_name: existing.lastName || existing.last_name || user.last_name || '',
+                username: existing.username || user.username || '',
+                lastActive: today,
+                messagesCount: (existing.messagesCount || 0) + 1
+            };
         }
+        localStorage.setItem('bot_users', JSON.stringify(users));
     } catch (e) { console.error('Error saving user', e); }
 };
 
@@ -54,6 +78,7 @@ const processMessageContent = (content: string, user: any) => {
 
 export const BotEngine: React.FC = () => {
     const offsetRef = useRef(0);
+    const isProcessingRef = useRef(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const queueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const userSessions = useRef<Record<number, { formId: string; step: number; answers: any[] }>>({});
@@ -199,14 +224,17 @@ export const BotEngine: React.FC = () => {
     // 2. MAIN BOT UPDATE LOOP (MESSAGES)
     // ==========================================
     const runBotCycle = async () => {
+        if (isProcessingRef.current) return;
+        
         const token = localStorage.getItem('bot_token');
         const autoReply = localStorage.getItem('bot_auto_reply') !== 'false';
         const webhookUrl = localStorage.getItem('bot_webhook_url');
 
         if (!token || webhookUrl) return; 
 
+        isProcessingRef.current = true;
         try {
-            const res = await telegramService.getUpdates(token, offsetRef.current + 1);
+            const res = await telegramService.getUpdates(token, offsetRef.current + 1, 10);
             if (res.ok && res.result && res.result.length > 0) {
                 let maxId = offsetRef.current;
                 
@@ -220,6 +248,8 @@ export const BotEngine: React.FC = () => {
             }
         } catch (e) {
             console.error('Polling Error', e);
+        } finally {
+            isProcessingRef.current = false;
         }
     };
 
@@ -513,8 +543,20 @@ export const BotEngine: React.FC = () => {
     };
 
     useEffect(() => {
-        intervalRef.current = setInterval(runBotCycle, 2000);
-        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+        let active = true;
+        
+        const pollLoop = async () => {
+            while (active) {
+                await runBotCycle();
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        };
+        
+        pollLoop();
+        
+        return () => { 
+            active = false;
+        };
     }, []);
 
     return null;

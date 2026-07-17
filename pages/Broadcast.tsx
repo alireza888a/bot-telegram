@@ -440,8 +440,35 @@ export const Broadcast: React.FC = () => {
   };
 
   const executeRealBroadcast = async (content: string, rows: InlineRow[], media: MediaAttachment[], opts: any) => {
-    let users = JSON.parse(localStorage.getItem('bot_users') || '[]');
-    if (users.length === 0) return setToast({ message: 'هنوز کاربری در ربات ثبت نشده است (با /start تست کنید)', type: 'error' });
+    const rawUsers = JSON.parse(localStorage.getItem('bot_users') || '[]');
+    
+    // EXCLUDE demo users from real API calls, only keep actual users
+    const actualUsers = rawUsers.filter((u: any) => !u.isDemo);
+    
+    // Apply Target Audience filter
+    let users = [...actualUsers];
+    if (targetAudience === 'active') {
+        users = actualUsers.filter((u: any) => u.status === 'active' || u.status === undefined);
+    } else if (targetAudience === 'vip') {
+        users = actualUsers.filter((u: any) => u.tags?.some((t: string) => t.toLowerCase().includes('vip') || t.includes('ویژه') || t.includes('VIP')));
+    } else if (targetAudience === 'new') {
+        const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+        users = actualUsers.filter((u: any) => {
+            const joined = u.joinedAt || u.joined_at;
+            if (!joined) return false;
+            if (typeof joined === 'number') return joined >= threeDaysAgo;
+            const d = new Date(joined).getTime();
+            return d >= threeDaysAgo;
+        });
+    }
+
+    if (users.length === 0) {
+        if (actualUsers.length === 0) {
+            return setToast({ message: 'هنوز هیچ کاربر واقعی در ربات ثبت نشده است (با /start در ربات خود تست کنید)', type: 'error' });
+        } else {
+            return setToast({ message: 'هیچ کاربر واقعی با شرایط فیلتر انتخاب شده یافت نشد.', type: 'error' });
+        }
+    }
 
     setIsSending(true);
     setShowReport(false);
@@ -492,7 +519,7 @@ export const Broadcast: React.FC = () => {
 
         const user = users[i];
         let res;
-        const finalContent = content.replace(/{first_name}|{نام}/g, user.first_name || 'کاربر')
+        const finalContent = content.replace(/{first_name}|{نام}/g, user.firstName || user.first_name || 'کاربر')
                                     .replace(/{username}|{یوزرنیم}/g, user.username || 'ندارد')
                                     .replace(/{id}/g, user.id);
 
@@ -961,6 +988,33 @@ export const Broadcast: React.FC = () => {
               <GlassCard title="تنظیمات ارسال پیشرفته">
                   <div className="space-y-4">
                       
+                      {/* Target Audience */}
+                      <div>
+                          <label className="text-xs text-slate-400 mb-2 block flex items-center gap-1">
+                              <Users className="text-purple-400" size={14}/> مخاطبین هدف:
+                          </label>
+                          <select 
+                              value={targetAudience}
+                              onChange={e => setTargetAudience(e.target.value as any)}
+                              className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-purple-500"
+                          >
+                              <option value="all">همه کاربران واقعی ({realUsers.filter(u => !u.isDemo).length} نفر)</option>
+                              <option value="active">کاربران فعال (بدون مسدودیت) ({realUsers.filter(u => !u.isDemo && u.status !== 'blocked').length} نفر)</option>
+                              <option value="vip">کاربران ویژه (مشتری VIP) ({realUsers.filter(u => !u.isDemo && u.tags?.some((t: string) => t.toLowerCase().includes('vip') || t.includes('ویژه') || t.includes('VIP'))).length} نفر)</option>
+                              <option value="new">کاربران جدید (۳ روز اخیر) ({
+                                  realUsers.filter(u => {
+                                      if (u.isDemo) return false;
+                                      const joined = u.joinedAt || u.joined_at;
+                                      if (!joined) return false;
+                                      const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+                                      if (typeof joined === 'number') return joined >= threeDaysAgo;
+                                      return new Date(joined).getTime() >= threeDaysAgo;
+                                  }).length
+                              } نفر)</option>
+                          </select>
+                          <p className="text-[10px] text-slate-500 mt-1 font-sans">کاربران نمایشی (Demo) به‌طور خودکار فیلتر می‌شوند و پیامی دریافت نخواهند کرد.</p>
+                      </div>
+
                       {/* Speed Control */}
                       <div>
                           <label className="text-xs text-slate-400 mb-2 block flex items-center gap-1"><Zap size={14} className="text-yellow-400"/> سرعت ارسال (ضد محدودیت):</label>

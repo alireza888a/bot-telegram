@@ -8,14 +8,18 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 interface BotUser {
     id: string;
-    firstName: string;
+    firstName?: string;
+    first_name?: string;
     lastName?: string;
+    last_name?: string;
     username?: string;
-    joinedAt: string;
-    lastActive: string;
-    messagesCount: number;
+    joinedAt?: string;
+    joined_at?: string | number;
+    lastActive?: string;
+    messagesCount?: number;
     status: 'active' | 'blocked';
     tags: string[];
+    isDemo?: boolean;
 }
 
 export const Users: React.FC = () => {
@@ -44,16 +48,16 @@ export const Users: React.FC = () => {
         } else {
             // Seed 10 realistic Telegram users
             const seededUsers: BotUser[] = [
-                { id: '184920401', firstName: 'علی', lastName: 'کریمی', username: 'ali_karimi', joinedAt: '2026-07-01', lastActive: '2026-07-17', messagesCount: 42, status: 'active', tags: ['مشتری VIP', 'تهران'] },
-                { id: '94820184', firstName: 'سارا', lastName: 'احمدی', username: 'sara_ahmadi7', joinedAt: '2026-07-05', lastActive: '2026-07-16', messagesCount: 18, status: 'active', tags: ['همکار'] },
-                { id: '284019482', firstName: 'Reza', lastName: 'Mousavi', username: 'reza_mou', joinedAt: '2026-07-08', lastActive: '2026-07-17', messagesCount: 124, status: 'active', tags: ['مشتری VIP'] },
-                { id: '58102948', firstName: 'مریم', lastName: 'حسینی', username: 'maryam_h', joinedAt: '2026-07-10', lastActive: '2026-07-15', messagesCount: 7, status: 'active', tags: [] },
-                { id: '49201948', firstName: 'امیر', lastName: 'رضایی', username: 'amir_rez', joinedAt: '2026-07-12', lastActive: '2026-07-12', messagesCount: 3, status: 'active', tags: [] },
-                { id: '10948201', firstName: 'کیان', lastName: 'مهرابی', username: 'kian_mehr', joinedAt: '2026-07-13', lastActive: '2026-07-17', messagesCount: 89, status: 'active', tags: ['پشتیبانی'] },
-                { id: '30491829', firstName: 'فاطمه', lastName: 'تقوی', username: 'fateme_tg', joinedAt: '2026-07-14', lastActive: '2026-07-14', messagesCount: 1, status: 'active', tags: [] },
-                { id: '40291849', firstName: 'علیرضا', lastName: 'محمدی', username: 'alireza_m', joinedAt: '2026-07-15', lastActive: '2026-07-17', messagesCount: 15, status: 'active', tags: [] },
-                { id: '77291048', firstName: 'Spam_Bot_99', username: 'spambot99_ad', joinedAt: '2026-07-16', lastActive: '2026-07-16', messagesCount: 33, status: 'blocked', tags: ['اسپمر'] },
-                { id: '66192048', firstName: 'مهدی', lastName: 'صادقی', username: 'mahdi_sad', joinedAt: '2026-07-17', lastActive: '2026-07-17', messagesCount: 12, status: 'active', tags: [] }
+                { id: '184920401', firstName: 'علی', lastName: 'کریمی', username: 'ali_karimi', joinedAt: '2026-07-01', lastActive: '2026-07-17', messagesCount: 42, status: 'active', tags: ['مشتری VIP', 'تهران'], isDemo: true },
+                { id: '94820184', firstName: 'سارا', lastName: 'احمدی', username: 'sara_ahmadi7', joinedAt: '2026-07-05', lastActive: '2026-07-16', messagesCount: 18, status: 'active', tags: ['همکار'], isDemo: true },
+                { id: '284019482', firstName: 'Reza', lastName: 'Mousavi', username: 'reza_mou', joinedAt: '2026-07-08', lastActive: '2026-07-17', messagesCount: 124, status: 'active', tags: ['مشتری VIP'], isDemo: true },
+                { id: '58102948', firstName: 'مریم', lastName: 'حسینی', username: 'maryam_h', joinedAt: '2026-07-10', lastActive: '2026-07-15', messagesCount: 7, status: 'active', tags: [], isDemo: true },
+                { id: '49201948', firstName: 'امیر', lastName: 'رضایی', username: 'amir_rez', joinedAt: '2026-07-12', lastActive: '2026-07-12', messagesCount: 3, status: 'active', tags: [], isDemo: true },
+                { id: '10948201', firstName: 'کیان', lastName: 'مهرابی', username: 'kian_mehr', joinedAt: '2026-07-13', lastActive: '2026-07-17', messagesCount: 89, status: 'active', tags: ['پشتیبانی'], isDemo: true },
+                { id: '30491829', firstName: 'فاطمه', lastName: 'تقوی', username: 'fateme_tg', joinedAt: '2026-07-14', lastActive: '2026-07-14', messagesCount: 1, status: 'active', tags: [], isDemo: true },
+                { id: '40291849', firstName: 'علیرضا', lastName: 'محمدی', username: 'alireza_m', joinedAt: '2026-07-15', lastActive: '2026-07-17', messagesCount: 15, status: 'active', tags: [], isDemo: true },
+                { id: '77291048', firstName: 'Spam_Bot_99', username: 'spambot99_ad', joinedAt: '2026-07-16', lastActive: '2026-07-16', messagesCount: 33, status: 'blocked', tags: ['اسپمر'], isDemo: true },
+                { id: '66192048', firstName: 'مهدی', lastName: 'صادقی', username: 'mahdi_sad', joinedAt: '2026-07-17', lastActive: '2026-07-17', messagesCount: 12, status: 'active', tags: [], isDemo: true }
             ];
             localStorage.setItem('bot_users', JSON.stringify(seededUsers));
             setUsers(seededUsers);
@@ -114,11 +118,13 @@ export const Users: React.FC = () => {
 
     // Filtered users
     const filteredUsers = users.filter(user => {
-        const nameMatch = `${user.firstName} ${user.lastName || ''} ${user.username || ''} ${user.id}`
+        const fName = user.firstName || user.first_name || 'کاربر';
+        const lName = user.lastName || user.last_name || '';
+        const nameMatch = `${fName} ${lName} ${user.username || ''} ${user.id}`
             .toLowerCase()
             .includes(searchTerm.toLowerCase());
         const statusMatch = statusFilter === 'all' || user.status === statusFilter;
-        const tagMatch = tagFilter === 'all' || user.tags.includes(tagFilter);
+        const tagMatch = tagFilter === 'all' || (user.tags && user.tags.includes(tagFilter));
         return nameMatch && statusMatch && tagMatch;
     });
 
@@ -145,7 +151,7 @@ export const Users: React.FC = () => {
         total: users.length,
         active: users.filter(u => u.status === 'active').length,
         blocked: users.filter(u => u.status === 'blocked').length,
-        totalMessages: users.reduce((sum, u) => sum + u.messagesCount, 0)
+        totalMessages: users.reduce((sum, u) => sum + (u.messagesCount || 0), 0)
     };
 
     // Get unique list of all tags for filter
@@ -227,10 +233,12 @@ export const Users: React.FC = () => {
                             <div>
                                 <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-lg">
                                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white uppercase">
-                                        {selectedUser.firstName.substring(0, 2)}
+                                        {(selectedUser.firstName || selectedUser.first_name || 'کاربر').substring(0, 2)}
                                     </div>
                                     <div>
-                                        <div className="text-xs font-bold text-white">{selectedUser.firstName} {selectedUser.lastName || ''}</div>
+                                        <div className="text-xs font-bold text-white">
+                                            {selectedUser.firstName || selectedUser.first_name || 'کاربر'} {selectedUser.lastName || selectedUser.last_name || ''}
+                                        </div>
                                         <div className="text-[10px] text-slate-400">آیدی: {selectedUser.id}</div>
                                     </div>
                                 </div>
@@ -348,20 +356,21 @@ export const Users: React.FC = () => {
                                     >
                                         <td className="py-3 flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white uppercase shrink-0">
-                                                {user.firstName.substring(0, 2)}
+                                                {(user.firstName || user.first_name || 'کاربر').substring(0, 2)}
                                             </div>
                                             <div>
                                                 <div className="font-bold text-white flex items-center gap-1.5">
-                                                    {user.firstName} {user.lastName || ''}
+                                                    {user.firstName || user.first_name || 'کاربر'} {user.lastName || user.last_name || ''}
                                                     {user.status === 'blocked' && <ShieldAlert size={12} className="text-red-400" title="بلاک شده"/>}
+                                                    {user.isDemo && <span className="text-[9px] bg-amber-500/10 text-amber-300 border border-amber-500/20 px-1 py-0.5 rounded">نمایشی</span>}
                                                 </div>
                                                 {user.username && <div className="text-[11px] text-slate-400 font-mono">@{user.username}</div>}
                                             </div>
                                         </td>
                                         <td className="py-3 font-mono text-xs text-slate-300">{user.id}</td>
-                                        <td className="py-3 text-xs text-slate-400">{user.joinedAt}</td>
-                                        <td className="py-3 text-xs text-slate-400">{user.lastActive}</td>
-                                        <td className="py-3 text-center text-xs text-white font-bold">{user.messagesCount} پیام</td>
+                                        <td className="py-3 text-xs text-slate-400">{user.joinedAt || (typeof user.joined_at === 'number' ? new Date(user.joined_at).toISOString().split('T')[0] : user.joined_at) || 'ناشناس'}</td>
+                                        <td className="py-3 text-xs text-slate-400">{user.lastActive || 'ناشناس'}</td>
+                                        <td className="py-3 text-center text-xs text-white font-bold">{user.messagesCount || 0} پیام</td>
                                         <td className="py-3">
                                             <div className="flex flex-wrap gap-1 max-w-[200px]">
                                                 {user.tags.length === 0 ? (

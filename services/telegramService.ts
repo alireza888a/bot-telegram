@@ -268,9 +268,9 @@ export const telegramService = {
       }
   },
 
-  async getUpdates(token: string, offset: number) {
+  async getUpdates(token: string, offset: number, timeout: number = 10) {
     try {
-      const res = await fetch(`${BASE_URL}${token}/getUpdates?offset=${offset}&timeout=1`);
+      const res = await fetch(`${BASE_URL}${token}/getUpdates?offset=${offset}&timeout=${timeout}`);
       return await res.json();
     } catch (e) {
       return { ok: false, description: 'Network Error' };
