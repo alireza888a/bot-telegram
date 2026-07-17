@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Advanced Telegram Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              vazir: ['Vazirmatn', 'sans-serif'],
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out',
+              'slide-up': 'slideUp 0.5s ease-out',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Vazirmatn', sans-serif;
+        transition: background 0.5s ease, color 0.5s ease;
+      }
+      
+      /* Dark Mode Background */
+      html.dark body {
+        background: radial-gradient(circle at top left, #1a1a2e, #16213e, #0f3460);
+        color: #fff;
+      }
+
+      /* Light Mode Background */
+      html.light body {
+        background: radial-gradient(circle at top left, #f1f5f9, #e2e8f0, #cbd5e1);
+        color: #0f172a;
+      }
+
+      /* Light Mode Global Legibility & Theme Fixes */
+      html.light h1, 
+      html.light h2, 
+      html.light h3, 
+      html.light h4, 
+      html.light h5, 
+      html.light h6 {
+        color: #0f172a !important; /* slate-900 */
+      }
+
+      /* Fix hardcoded white text on glass cards/containers in light mode */
+      html.light .text-white:not(button):not(a):not(.bg-blue-600):not(.bg-purple-600):not(.bg-emerald-600):not(.bg-green-600):not(.bg-red-600):not(.bg-orange-600):not(.bg-cyan-600):not(.bg-indigo-600):not(.bg-indigo-500):not(.bg-teal-600):not(.bg-yellow-600):not(.telegram-simulator):not(.telegram-simulator *) {
+        color: #1e293b !important; /* slate-800 */
+      }
+
+      html.light [class*="text-white/"]:not(button):not(a):not(.telegram-simulator):not(.telegram-simulator *) {
+        color: #334155 !important; /* slate-700 */
+      }
+
+      html.light .text-slate-300:not(.telegram-simulator):not(.telegram-simulator *) {
+        color: #334155 !important; /* slate-700 */
+      }
+
+      html.light .text-slate-400:not(.telegram-simulator):not(.telegram-simulator *) {
+        color: #475569 !important; /* slate-600 */
+      }
+
+      html.light .text-slate-500:not(.telegram-simulator):not(.telegram-simulator *) {
+        color: #64748b !important; /* slate-500 */
+      }
+
+      html.light .text-blue-200:not(.telegram-simulator):not(.telegram-simulator *) {
+        color: #1e40af !important; /* blue-800 */
+      }
+
+      html.light .text-yellow-200\/80:not(.telegram-simulator):not(.telegram-simulator *) {
+        color: #854d0e !important; /* yellow-800 */
+      }
+
+      /* Light Mode Inputs, Textareas, and Selects */
+      html.light input:not([type="checkbox"]):not([type="radio"]):not(.bg-transparent):not(.telegram-simulator *), 
+      html.light textarea:not(.telegram-simulator *), 
+      html.light select:not(.telegram-simulator *) {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        color: #0f172a !important; /* slate-900 */
+        border-color: #cbd5e1 !important; /* slate-300 */
+      }
+
+      html.light input:not([type="checkbox"]):not([type="radio"]):not(.bg-transparent):not(.telegram-simulator *):focus, 
+      html.light textarea:not(.telegram-simulator *):focus, 
+      html.light select:not(.telegram-simulator *):focus {
+        border-color: #3b82f6 !important; /* blue-500 */
+        outline: none !important;
+      }
+
+      html.light input::placeholder, 
+      html.light textarea::placeholder {
+        color: #94a3b8 !important; /* slate-400 */
+      }
+
+      /* Overlays and Background Container Fixes */
+      html.light .bg-white\/5:not(.telegram-simulator):not(.telegram-simulator *) {
+        background-color: rgba(15, 23, 42, 0.05) !important; /* slate-900 opacity 5% */
+        border-color: rgba(15, 23, 42, 0.08) !important;
+      }
+
+      html.light .bg-white\/10:not(.telegram-simulator):not(.telegram-simulator *) {
+        background-color: rgba(15, 23, 42, 0.08) !important;
+        border-color: rgba(15, 23, 42, 0.12) !important;
+      }
+
+      html.light .bg-black\/20:not(.telegram-simulator):not(.telegram-simulator *) {
+        background-color: rgba(15, 23, 42, 0.06) !important;
+        border-color: rgba(15, 23, 42, 0.1) !important;
+      }
+
+      html.light .border-white\/10:not(.telegram-simulator):not(.telegram-simulator *) {
+        border-color: rgba(15, 23, 42, 0.12) !important;
+      }
+
+      html.light .border-white\/5:not(.telegram-simulator):not(.telegram-simulator *) {
+        border-color: rgba(15, 23, 42, 0.08) !important;
+      }
+
+      /* Scrollbars */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      html.dark ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05); 
+      }
+      html.dark ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2); 
+        border-radius: 4px;
+      }
+      html.dark ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.4); 
+      }
+
+      html.light ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05); 
+      }
+      html.light ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2); 
+        border-radius: 4px;
+      }
+      html.light ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.4); 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.564.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
