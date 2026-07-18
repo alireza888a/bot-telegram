@@ -11,7 +11,7 @@ export const generateWorkerCode = (token: string, licenseCode: string): string =
  * ۱. این کد را کامل کپی کنید.
  * ۲. وارد Cloudflare Dashboard شوید → Workers & Pages → Create Worker.
  * ۳. روی Edit code بزنید، کد فعلی را پاک کنید، این کد را پیست کنید، Deploy بزنید.
- * ۴. اگر پیام زمانبندیشده استفاده میکنید: در تب Settings → Trigger Events → Add → Cron Trigger، مقدار "*/5 * * * *" (هر ۵ دقیقه) را اضافه کنید.
+ * ۴. اگر پیام زمانبندیشده استفاده میکنید: در تب Settings → Trigger Events → Add → Cron Trigger، زمان‌بندی کرون هر ۵ دقیقه (مثلاً با الگوی * / 5 * * * * بدون فاصله‌ها) را اضافه کنید.
  * ۵. آدرس Worker (چیزی شبیه https://xxx.workers.dev) را کپی کنید.
  * ۶. در سایت تلگرام یا با ارسال این آدرس به @BotFather webhook خود را تنظیم کنید — یا اگر پنل این کار را برایتان انجام میدهد، نیازی به این مرحله نیست.
  * بعد از این مراحل، ربات شما ۲۴ ساعته و مستقل از این پنل کار خواهد کرد.
