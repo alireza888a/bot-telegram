@@ -20,7 +20,10 @@ export const saveToCloud = async (code: string): Promise<boolean> => {
         forms: JSON.parse(localStorage.getItem('kb_forms') || '{}'),
         commands: JSON.parse(localStorage.getItem('bot_commands') || '[]'),
         channels: JSON.parse(localStorage.getItem('saved_channels') || '[]'),
-        templates: JSON.parse(localStorage.getItem('broadcast_templates') || '[]')
+        templates: JSON.parse(localStorage.getItem('broadcast_templates') || '[]'),
+        users: JSON.parse(localStorage.getItem('bot_users') || '[]'),
+        logs: JSON.parse(localStorage.getItem('bot_logs') || '[]'),
+        queue: JSON.parse(localStorage.getItem('channel_queue') || '[]')
       }
     };
 
@@ -71,6 +74,9 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
         localStorage.setItem('bot_commands', JSON.stringify(json.data.commands || []));
         localStorage.setItem('saved_channels', JSON.stringify(json.data.channels || []));
         localStorage.setItem('broadcast_templates', JSON.stringify(json.data.templates || []));
+        localStorage.setItem('bot_users', JSON.stringify(json.data.users || []));
+        localStorage.setItem('bot_logs', JSON.stringify(json.data.logs || []));
+        localStorage.setItem('channel_queue', JSON.stringify(json.data.queue || []));
       }
       return true;
     }
