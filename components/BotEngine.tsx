@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { telegramService, TelegramUpdate } from '../services/telegramService';
-import { MenuPage, FormConfig, CommandConfig, QueueItem } from '../types';
+import { MenuPage, FormConfig, CommandConfig, QueueItem, Product, CartItem, Order } from '../types';
 
 // --- LOGGING HELPER ---
 const broadcastLog = (user: string, text: string, type: 'incoming' | 'outgoing' | 'system') => {
@@ -346,6 +346,10 @@ export const BotEngine: React.FC = () => {
 
             if (text && text.startsWith('/')) {
                 const cmdName = text.substring(1).split(' ')[0].toLowerCase();
+                if (cmdName === 'shop') {
+                    await sendShopCatalog(token, chatId, user);
+                    return;
+                }
                 const matched = commands.find(c => c.command === cmdName);
                 if (matched) {
                     if (matched.actionType === 'text') {
@@ -361,9 +365,17 @@ export const BotEngine: React.FC = () => {
                 }
             }
 
-            // Forms
+            // Forms & Shop Awaiting Receipt
             if (userSessions.current[user.id]) {
-                const session = userSessions.current[user.id];
+                const session = userSessions.current[user.id] as any;
+                if (session.type === 'awaiting_receipt') {
+                    if (update.message.photo) {
+                        await handleReceiptPhoto(token, chatId, user, update.message.photo);
+                    } else {
+                        await telegramService.sendMessage(token, chatId, '⚠️ لطفا تصویر فیش پرداخت خود را به صورت عکس (Photo) ارسال کنید. در صورتی که تمایل به لغو سفارش دارید دستور /cancel را ارسال کنید.');
+                    }
+                    return;
+                }
                 const form = forms[session.formId];
                 if (form) {
                     const question = form.questions[session.step];
@@ -500,6 +512,33 @@ export const BotEngine: React.FC = () => {
                 return;
             }
 
+            if (data.startsWith('cart_add_')) {
+                const productId = data.replace('cart_add_', '');
+                await handleCartAdd(token, chatId, user, productId, update.callback_query.id);
+                return;
+            }
+
+            if (data === 'cart_view') {
+                await handleCartView(token, chatId, user, update.callback_query.id);
+                return;
+            }
+
+            if (data === 'cart_clear') {
+                await handleCartClear(token, chatId, user, update.callback_query.id);
+                return;
+            }
+
+            if (data === 'cart_checkout') {
+                await handleCartCheckout(token, chatId, user, update.callback_query.id);
+                return;
+            }
+
+            if (data === 'cart_shop') {
+                await telegramService.answerCallbackQuery(token, update.callback_query.id);
+                await sendShopCatalog(token, chatId, user);
+                return;
+            }
+
             if (menus[data]) {
                 await sendMenu(token, chatId, menus[data], user);
                 await telegramService.answerCallbackQuery(token, update.callback_query.id);
@@ -540,6 +579,237 @@ export const BotEngine: React.FC = () => {
         } else {
              await telegramService.sendMessage(token, chatId, content, kb);
         }
+    };
+
+    const sendShopCatalog = async (token: string, chatId: number | string, user: any) => {
+        let products: Product[] = [];
+        try {
+            products = JSON.parse(localStorage.getItem('bot_products') || '[]');
+        } catch {}
+
+        const activeProducts = products.filter(p => p.active);
+
+        if (activeProducts.length === 0) {
+            await telegramService.sendMessage(token, chatId, "🛍️ <b>فروشگاه در حال حاضر غیرفعال است یا محصولی تعریف نشده است.</b>");
+            return;
+        }
+
+        let messageText = "🛍️ <b>کاتالوگ محصولات فروشگاه</b>\n\nلطفاً برای خرید هر محصول روی دکمه افزودن به سبد خرید کلیک کنید:\n\n";
+        const buttons = [];
+
+        for (const p of activeProducts) {
+            messageText += `🔹 <b>${p.name}</b>\n💰 قیمت: ${p.price.toLocaleString('fa-IR')} تومان\n📝 ${p.description}\n\n`;
+            buttons.push([{
+                text: `🛒 افزودن ${p.name} به سبد`,
+                callback_data: `cart_add_${p.id}`
+            }]);
+        }
+
+        buttons.push([
+            { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
+            { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" }
+        ]);
+
+        await telegramService.sendMessage(token, chatId, messageText, { inline_keyboard: buttons });
+    };
+
+    const handleCartAdd = async (token: string, chatId: number | string, user: any, productId: string, callbackQueryId: string) => {
+        let products: Product[] = [];
+        try {
+            products = JSON.parse(localStorage.getItem('bot_products') || '[]');
+        } catch {}
+
+        const product = products.find(p => p.id === productId);
+        if (!product) {
+            await telegramService.answerCallbackQuery(token, callbackQueryId, "❌ محصول یافت نشد.");
+            return;
+        }
+
+        let carts: Record<string, CartItem[]> = {};
+        try {
+            carts = JSON.parse(localStorage.getItem('bot_carts') || '{}');
+        } catch {}
+
+        const userIdStr = String(user.id);
+        const userCart = carts[userIdStr] || [];
+        const existingItemIdx = userCart.findIndex(item => item.productId === productId);
+
+        if (existingItemIdx > -1) {
+            userCart[existingItemIdx].qty += 1;
+        } else {
+            userCart.push({ productId, qty: 1 });
+        }
+
+        carts[userIdStr] = userCart;
+        localStorage.setItem('bot_carts', JSON.stringify(carts));
+
+        await telegramService.answerCallbackQuery(token, callbackQueryId, `🛒 ${product.name} به سبد خرید اضافه شد!`);
+    };
+
+    const handleCartView = async (token: string, chatId: number | string, user: any, callbackQueryId?: string) => {
+        let carts: Record<string, CartItem[]> = {};
+        let products: Product[] = [];
+        try {
+            carts = JSON.parse(localStorage.getItem('bot_carts') || '{}');
+            products = JSON.parse(localStorage.getItem('bot_products') || '[]');
+        } catch {}
+
+        const userIdStr = String(user.id);
+        const userCart = carts[userIdStr] || [];
+
+        if (userCart.length === 0) {
+            const msg = "🧺 <b>سبد خرید شما خالی است.</b>";
+            const buttons = [[{ text: "🛍️ مشاهده محصولات فروشگاه", callback_data: "cart_shop" }]];
+            if (callbackQueryId) {
+                await telegramService.answerCallbackQuery(token, callbackQueryId);
+                await telegramService.sendMessage(token, chatId, msg, { inline_keyboard: buttons });
+            } else {
+                await telegramService.sendMessage(token, chatId, msg, { inline_keyboard: buttons });
+            }
+            return;
+        }
+
+        let total = 0;
+        let messageText = "🧺 <b>سبد خرید شما:</b>\n\n";
+
+        for (const item of userCart) {
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+                const subtotal = prod.price * item.qty;
+                total += subtotal;
+                messageText += `▪️ <b>${prod.name}</b>\n   تعداد: ${item.qty} × قیمت: ${prod.price.toLocaleString('fa-IR')} = <code>${subtotal.toLocaleString('fa-IR')}</code> تومان\n\n`;
+            }
+        }
+
+        messageText += `🏁 <b>مبلغ کل قابل پرداخت:</b> <code>${total.toLocaleString('fa-IR')}</code> تومان\n\n`;
+
+        const cardNumber = localStorage.getItem('payment_card_number') || 'تنظیم نشده';
+        const cardOwner = localStorage.getItem('payment_card_owner') || 'تنظیم نشده';
+
+        messageText += `💳 <b>اطلاعات پرداخت کارت‌به‌کارت:</b>\n`;
+        messageText += `شماره کارت: <code>${cardNumber}</code>\n`;
+        messageText += `بنام صاحب حساب: <b>${cardOwner}</b>\n\n`;
+        messageText += `⚠️ لطفاً مبلغ فوق را به شماره کارت بالا واریز نموده، سپس دکمه <b>"ثبت سفارش و ارسال فیش"</b> را بزنید و عکس فیش واریزی خود را ارسال کنید.`;
+
+        const buttons = [
+            [{ text: "🧾 ثبت سفارش و ارسال فیش پرداخت", callback_data: "cart_checkout" }],
+            [
+                { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" },
+                { text: "🛍️ بازگشت به فروشگاه", callback_data: "cart_shop" }
+            ]
+        ];
+
+        if (callbackQueryId) {
+            await telegramService.answerCallbackQuery(token, callbackQueryId);
+        }
+        await telegramService.sendMessage(token, chatId, messageText, { inline_keyboard: buttons });
+    };
+
+    const handleCartClear = async (token: string, chatId: number | string, user: any, callbackQueryId: string) => {
+        let carts: Record<string, CartItem[]> = {};
+        try {
+            carts = JSON.parse(localStorage.getItem('bot_carts') || '{}');
+        } catch {}
+
+        const userIdStr = String(user.id);
+        delete carts[userIdStr];
+        localStorage.setItem('bot_carts', JSON.stringify(carts));
+
+        await telegramService.answerCallbackQuery(token, callbackQueryId, "🧹 سبد خرید شما خالی شد.");
+        await telegramService.sendMessage(token, chatId, "🧹 سبد خرید شما با موفقیت خالی شد.", {
+            inline_keyboard: [[{ text: "🛍️ مشاهده محصولات فروشگاه", callback_data: "cart_shop" }]]
+        });
+    };
+
+    const handleCartCheckout = async (token: string, chatId: number | string, user: any, callbackQueryId: string) => {
+        userSessions.current[user.id] = { type: 'awaiting_receipt' };
+        await telegramService.answerCallbackQuery(token, callbackQueryId);
+        await telegramService.sendMessage(token, chatId, "لطفاً تصویر (فوتو) فیش واریزی خود را ارسال کنید تا سفارش شما ثبت و توسط ادمین بررسی شود. 📸\n\nبرای لغو این عملیات دستور /cancel را بفرستید.");
+    };
+
+    const handleReceiptPhoto = async (token: string, chatId: number | string, user: any, photoUpdate: any) => {
+        let carts: Record<string, CartItem[]> = {};
+        let products: Product[] = [];
+        try {
+            carts = JSON.parse(localStorage.getItem('bot_carts') || '{}');
+            products = JSON.parse(localStorage.getItem('bot_products') || '[]');
+        } catch {}
+
+        const userIdStr = String(user.id);
+        const userCart = carts[userIdStr] || [];
+
+        if (userCart.length === 0) {
+            await telegramService.sendMessage(token, chatId, "❌ سبد خرید شما خالی است. ابتدا محصولی به سبد خرید اضافه کنید.");
+            delete userSessions.current[user.id];
+            return;
+        }
+
+        const orderItems = [];
+        let total = 0;
+
+        for (const item of userCart) {
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+                orderItems.push({
+                    productId: item.productId,
+                    name: prod.name,
+                    price: prod.price,
+                    qty: item.qty
+                });
+                total += prod.price * item.qty;
+            }
+        }
+
+        if (orderItems.length === 0) {
+            await telegramService.sendMessage(token, chatId, "❌ خطایی در ثبت سفارش رخ داد. محصولات سبد معتبر نیستند.");
+            delete userSessions.current[user.id];
+            return;
+        }
+
+        const newOrder: Order = {
+            id: `order_${Date.now()}_${user.id}`,
+            userId: userIdStr,
+            userFirstName: user.first_name || 'کاربر',
+            items: orderItems,
+            total: total,
+            status: 'pending',
+            createdAt: Date.now()
+        };
+
+        let orders: Order[] = [];
+        try {
+            orders = JSON.parse(localStorage.getItem('bot_orders') || '[]');
+        } catch {}
+
+        orders.push(newOrder);
+        localStorage.setItem('bot_orders', JSON.stringify(orders));
+
+        delete carts[userIdStr];
+        localStorage.setItem('bot_carts', JSON.stringify(carts));
+
+        delete userSessions.current[user.id];
+
+        await telegramService.sendMessage(token, chatId, "رسید شما دریافت شد و سفارش ثبت گردید ⏳ پس از تایید توسط ادمین به شما اطلاع‌رسانی می‌شود.");
+
+        const dbChannelId = localStorage.getItem('bot_db_channel');
+        if (dbChannelId) {
+            try {
+                const fileId = photoUpdate[photoUpdate.length - 1].file_id;
+                const adminMsg = `🧾 <b>فیش سفارش جدید ثبت شد!</b>\n` +
+                                 `👤 خریدار: ${user.first_name} (#id_${user.id})\n` +
+                                 `🆔 شناسه سفارش: <code>${newOrder.id}</code>\n` +
+                                 `💰 مبلغ کل: <b>${total.toLocaleString('fa-IR')}</b> تومان\n\n` +
+                                 `اقلام سفارش:\n` +
+                                 orderItems.map((item, idx) => `▫️ ${idx+1}. ${item.name} (تعداد: ${item.qty})`).join('\n') +
+                                 `\n\nفیش پرداخت پیوست شده است. لطفاً از پنل مدیریت سفارش را تایید یا رد کنید.`;
+                
+                await telegramService.sendPhoto(token, dbChannelId, fileId, adminMsg);
+            } catch (e) {
+                console.error("Error forwarding receipt to DB channel:", e);
+            }
+        }
+
+        broadcastLog(user.first_name, `Order placed: ${total} Toman`, 'system');
     };
 
     useEffect(() => {

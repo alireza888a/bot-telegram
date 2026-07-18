@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
     Save, Database, Download, Upload, RefreshCcw, Server, 
-    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X
+    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard
 } from 'lucide-react';
 import { telegramService } from '../services/telegramService';
 
@@ -12,6 +12,10 @@ export const Settings: React.FC = () => {
     // Initialize directly from localStorage
     const [dbChannel, setDbChannel] = useState(localStorage.getItem('bot_db_channel') || '');
     
+    // Payment Card Settings States
+    const [cardNumber, setCardNumber] = useState(localStorage.getItem('payment_card_number') || '');
+    const [cardOwner, setCardOwner] = useState(localStorage.getItem('payment_card_owner') || '');
+
     const [isCheckingDb, setIsCheckingDb] = useState(false);
     const [dbStatus, setDbStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [statusMsg, setStatusMsg] = useState('');
@@ -33,6 +37,14 @@ export const Settings: React.FC = () => {
     useEffect(() => {
         localStorage.setItem('bot_db_channel', dbChannel);
     }, [dbChannel]);
+
+    useEffect(() => {
+        localStorage.setItem('payment_card_number', cardNumber);
+    }, [cardNumber]);
+
+    useEffect(() => {
+        localStorage.setItem('payment_card_owner', cardOwner);
+    }, [cardOwner]);
 
     // Restore visual status on mount if channel exists
     useEffect(() => {
@@ -397,6 +409,41 @@ export const Settings: React.FC = () => {
                             <AlertTriangle size={16}/>
                             بازگشت به تنظیمات کارخانه (پاکسازی کامل)
                         </button>
+                    </div>
+                </GlassCard>
+
+                {/* 3. CARD PAYMENT SETTINGS */}
+                <GlassCard className="border-t-4 border-t-yellow-500">
+                    <div className="flex items-center gap-2 mb-4">
+                        <CreditCard className="text-yellow-400"/>
+                        <h3 className="font-bold text-lg dark:text-white text-slate-800">اطلاعات پرداخت کارت‌به‌کارت (فروشگاه)</h3>
+                    </div>
+                    
+                    <div className="text-sm text-slate-400 mb-6 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
+                        <p>شماره کارت و نام صاحب حساب بانکی خود را جهت نمایش به کاربران ربات تلگرام در مرحله ثبت سفارش و تسویه حساب دستی وارد نمایید.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs text-slate-500 mb-1.5">شماره ۱۶ رقمی کارت بانکی</label>
+                            <input 
+                                value={cardNumber}
+                                onChange={(e) => setCardNumber(e.target.value)}
+                                placeholder="مثال: ۶۰۳۷۹۹۱۸۱۲۳۴۵۶۷۸"
+                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white dir-ltr text-left font-mono outline-none focus:border-yellow-500 transition-colors"
+                                dir="ltr"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs text-slate-500 mb-1.5">نام و نام خانوادگی صاحب حساب</label>
+                            <input 
+                                value={cardOwner}
+                                onChange={(e) => setCardOwner(e.target.value)}
+                                placeholder="مثال: علی جلالی"
+                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-yellow-500 transition-colors"
+                            />
+                        </div>
                     </div>
                 </GlassCard>
             </div>

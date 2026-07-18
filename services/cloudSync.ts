@@ -13,7 +13,9 @@ export const saveToCloud = async (code: string): Promise<boolean> => {
         db_channel: localStorage.getItem('bot_db_channel'),
         webhook_url: localStorage.getItem('bot_webhook_url'),
         theme: localStorage.getItem('theme'),
-        force_join: localStorage.getItem('force_join_enabled')
+        force_join: localStorage.getItem('force_join_enabled'),
+        payment_card_number: localStorage.getItem('payment_card_number'),
+        payment_card_owner: localStorage.getItem('payment_card_owner')
       },
       data: {
         menus: JSON.parse(localStorage.getItem('kb_menus') || '{}'),
@@ -23,7 +25,10 @@ export const saveToCloud = async (code: string): Promise<boolean> => {
         templates: JSON.parse(localStorage.getItem('broadcast_templates') || '[]'),
         users: JSON.parse(localStorage.getItem('bot_users') || '[]'),
         logs: JSON.parse(localStorage.getItem('bot_logs') || '[]'),
-        queue: JSON.parse(localStorage.getItem('channel_queue') || '[]')
+        queue: JSON.parse(localStorage.getItem('channel_queue') || '[]'),
+        products: JSON.parse(localStorage.getItem('bot_products') || '[]'),
+        carts: JSON.parse(localStorage.getItem('bot_carts') || '{}'),
+        orders: JSON.parse(localStorage.getItem('bot_orders') || '[]')
       }
     };
 
@@ -65,6 +70,8 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
         if (json.config.db_channel) localStorage.setItem('bot_db_channel', json.config.db_channel);
         if (json.config.webhook_url) localStorage.setItem('bot_webhook_url', json.config.webhook_url);
         if (json.config.force_join) localStorage.setItem('force_join_enabled', json.config.force_join);
+        if (json.config.payment_card_number) localStorage.setItem('payment_card_number', json.config.payment_card_number);
+        if (json.config.payment_card_owner) localStorage.setItem('payment_card_owner', json.config.payment_card_owner);
       }
 
       // Restore Data
@@ -77,6 +84,9 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
         localStorage.setItem('bot_users', JSON.stringify(json.data.users || []));
         localStorage.setItem('bot_logs', JSON.stringify(json.data.logs || []));
         localStorage.setItem('channel_queue', JSON.stringify(json.data.queue || []));
+        localStorage.setItem('bot_products', JSON.stringify(json.data.products || []));
+        localStorage.setItem('bot_carts', JSON.stringify(json.data.carts || {}));
+        localStorage.setItem('bot_orders', JSON.stringify(json.data.orders || []));
       }
       return true;
     }

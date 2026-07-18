@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Menu, Home, Settings, Layers, Users, Command, Bell, Search, Moon, Sun, Megaphone, LogOut, Download, AlertTriangle, X, Cloud, UserCog } from 'lucide-react';
+import { Menu, Home, Settings, Layers, Users, Command, Bell, Search, Moon, Sun, Megaphone, LogOut, Download, AlertTriangle, X, Cloud, UserCog, ShoppingBag, ShoppingCart } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,6 +21,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
     { id: 'keyboard', label: 'دکمه‌ساز', icon: <Layers size={20} /> },
     { id: 'commands', label: 'دستورات', icon: <Command size={20} /> },
     { id: 'users', label: 'کاربران ربات', icon: <UserCog size={20} /> },
+    { id: 'products', label: 'محصولات', icon: <ShoppingBag size={20} /> },
+    { id: 'orders', label: 'سفارش‌ها', icon: <ShoppingCart size={20} /> },
     { id: 'cloud', label: 'انتشار ابری', icon: <Cloud size={20} /> }, // NEW ITEM
     { id: 'settings', label: 'تنظیمات', icon: <Settings size={20} /> },
   ];

@@ -148,3 +148,28 @@ export interface MediaFile {
     preview: string;
     fileId?: string;
 }
+
+export interface Product {
+  id: string;
+  name: string;
+  price: number; // تومان
+  description: string;
+  imageUrl?: string;
+  active: boolean;
+}
+
+export interface CartItem {
+  productId: string;
+  qty: number;
+}
+
+export interface Order {
+  id: string;
+  userId: string; // آیدی عددی کاربر تلگرام
+  userFirstName: string;
+  items: { productId: string; name: string; price: number; qty: number }[];
+  total: number;
+  status: 'pending' | 'confirmed' | 'rejected';
+  createdAt: number;
+}
+

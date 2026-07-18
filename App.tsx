@@ -10,6 +10,8 @@ import { Commands } from './pages/Commands';
 import { CloudPublish } from './pages/CloudPublish'; // Import new page
 import { Settings } from './pages/Settings';
 import { Users } from './pages/Users';
+import { Products } from './pages/Products';
+import { Orders } from './pages/Orders';
 import { BotEngine } from './components/BotEngine'; 
 import { useCloudAutoSave } from './hooks/useCloudAutoSave';
 
@@ -69,6 +71,10 @@ const App: React.FC = () => {
         return <Commands />;
       case 'users':
         return <Users />;
+      case 'products':
+        return <Products />;
+      case 'orders':
+        return <Orders />;
       case 'cloud':
         return <CloudPublish />; // New Route
       case 'settings':
