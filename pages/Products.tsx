@@ -21,6 +21,7 @@ export const Products: React.FC = () => {
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [active, setActive] = useState(true);
+  const [category, setCategory] = useState('');
 
   useEffect(() => {
     localStorage.setItem('bot_products', JSON.stringify(products));
@@ -33,6 +34,7 @@ export const Products: React.FC = () => {
     setDescription('');
     setImageUrl('');
     setActive(true);
+    setCategory('');
     setIsModalOpen(true);
   };
 
@@ -43,6 +45,7 @@ export const Products: React.FC = () => {
     setDescription(product.description);
     setImageUrl(product.imageUrl || '');
     setActive(product.active);
+    setCategory(product.category || '');
     setIsModalOpen(true);
   };
 
@@ -61,7 +64,8 @@ export const Products: React.FC = () => {
         price: Number(price),
         description,
         imageUrl: imageUrl || undefined,
-        active
+        active,
+        category: category.trim() || 'عمومی'
       } : p));
     } else {
       // Create new
@@ -71,7 +75,8 @@ export const Products: React.FC = () => {
         price: Number(price),
         description,
         imageUrl: imageUrl || undefined,
-        active
+        active,
+        category: category.trim() || 'عمومی'
       };
       setProducts([...products, newProduct]);
     }
@@ -153,6 +158,10 @@ export const Products: React.FC = () => {
                     }`}
                   >
                     {product.active ? 'فعال' : 'غیرفعال'}
+                  </span>
+                  {/* Category Badge */}
+                  <span className="absolute top-4 left-4 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    {product.category || 'عمومی'}
                   </span>
                 </div>
 
@@ -268,6 +277,17 @@ export const Products: React.FC = () => {
                   placeholder="مثال: https://example.com/image.jpg"
                   className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors text-right"
                   dir="ltr"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5">دسته‌بندی (اختیاری)</label>
+                <input
+                  type="text"
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  placeholder="مثال: اشتراک‌ها، فیزیکی، عمومی"
+                  className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
 

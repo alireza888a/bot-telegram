@@ -156,6 +156,7 @@ export interface Product {
   description: string;
   imageUrl?: string;
   active: boolean;
+  category?: string;
 }
 
 export interface CartItem {

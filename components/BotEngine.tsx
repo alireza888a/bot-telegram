@@ -539,6 +539,21 @@ export const BotEngine: React.FC = () => {
                 return;
             }
 
+            if (data === 'shop_categories') {
+                await telegramService.answerCallbackQuery(token, update.callback_query.id);
+                await sendShopCatalog(token, chatId, user);
+                return;
+            }
+
+            if (data.startsWith('shop_cat_')) {
+                const parts = data.split('_');
+                const catIndex = parseInt(parts[2], 10);
+                const page = parseInt(parts[3], 10);
+                await telegramService.answerCallbackQuery(token, update.callback_query.id);
+                await sendCategoryProducts(token, chatId, user, catIndex, page);
+                return;
+            }
+
             if (menus[data]) {
                 await sendMenu(token, chatId, menus[data], user);
                 await telegramService.answerCallbackQuery(token, update.callback_query.id);
@@ -594,16 +609,104 @@ export const BotEngine: React.FC = () => {
             return;
         }
 
-        let messageText = "🛍️ <b>کاتالوگ محصولات فروشگاه</b>\n\nلطفاً برای خرید هر محصول روی دکمه افزودن به سبد خرید کلیک کنید:\n\n";
+        const categories = Array.from(new Set(activeProducts.map(p => (p.category || '').trim() || 'عمومی'))).sort((a, b) => a.localeCompare(b, 'fa'));
+
+        if (categories.length <= 1 && activeProducts.length <= 5) {
+            let messageText = "🛍️ <b>کاتالوگ محصولات فروشگاه</b>\n\nلطفاً برای خرید هر محصول روی دکمه افزودن به سبد خرید کلیک کنید:\n\n";
+            const buttons = [];
+
+            for (const p of activeProducts) {
+                messageText += `🔹 <b>${p.name}</b>\n💰 قیمت: ${p.price.toLocaleString('fa-IR')} تومان\n📝 ${p.description || 'بدون توضیحات.'}\n\n`;
+                buttons.push([{
+                    text: `🛒 افزودن ${p.name} به سبد`,
+                    callback_data: `cart_add_${p.id}`
+                }]);
+            }
+
+            buttons.push([
+                { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
+                { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" }
+            ]);
+
+            await telegramService.sendMessage(token, chatId, messageText, { inline_keyboard: buttons });
+        } else {
+            const messageText = "🛍️ <b>لطفاً یک دسته انتخاب کنید:</b>";
+            const buttons = [];
+
+            for (let i = 0; i < categories.length; i++) {
+                buttons.push([{
+                    text: `📁 ${categories[i]}`,
+                    callback_data: `shop_cat_${i}_0`
+                }]);
+            }
+
+            buttons.push([
+                { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
+                { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" }
+            ]);
+
+            await telegramService.sendMessage(token, chatId, messageText, { inline_keyboard: buttons });
+        }
+    };
+
+    const sendCategoryProducts = async (token: string, chatId: number | string, user: any, categoryIndex: number, page: number) => {
+        let products: Product[] = [];
+        try {
+            products = JSON.parse(localStorage.getItem('bot_products') || '[]');
+        } catch {}
+
+        const activeProducts = products.filter(p => p.active);
+        const categories = Array.from(new Set(activeProducts.map(p => (p.category || '').trim() || 'عمومی'))).sort((a, b) => a.localeCompare(b, 'fa'));
+
+        if (categoryIndex < 0 || categoryIndex >= categories.length) {
+            await telegramService.sendMessage(token, chatId, "❌ دسته مورد نظر یافت نشد.");
+            return;
+        }
+
+        const targetCategory = categories[categoryIndex];
+        const categoryProducts = activeProducts.filter(p => ((p.category || '').trim() || 'عمومی') === targetCategory);
+
+        const limit = 5;
+        const offset = page * limit;
+        const pageProducts = categoryProducts.slice(offset, offset + limit);
+
+        if (pageProducts.length === 0) {
+            await telegramService.sendMessage(token, chatId, "📦 محصولی در این صفحه وجود ندارد.");
+            return;
+        }
+
+        let messageText = `📁 <b>دسته‌بندی: ${targetCategory}</b>\n\n`;
         const buttons = [];
 
-        for (const p of activeProducts) {
-            messageText += `🔹 <b>${p.name}</b>\n💰 قیمت: ${p.price.toLocaleString('fa-IR')} تومان\n📝 ${p.description}\n\n`;
+        for (const p of pageProducts) {
+            messageText += `🔹 <b>${p.name}</b>\n💰 قیمت: ${p.price.toLocaleString('fa-IR')} تومان\n📝 ${p.description || 'بدون توضیحات.'}\n\n`;
             buttons.push([{
                 text: `🛒 افزودن ${p.name} به سبد`,
                 callback_data: `cart_add_${p.id}`
             }]);
         }
+
+        const paginationRow = [];
+        if (page > 0) {
+            paginationRow.push({
+                text: "◀️ صفحه قبل",
+                callback_data: `shop_cat_${categoryIndex}_${page - 1}`
+            });
+        }
+        if (offset + limit < categoryProducts.length) {
+            paginationRow.push({
+                text: "▶️ صفحه بعد",
+                callback_data: `shop_cat_${categoryIndex}_${page + 1}`
+            });
+        }
+        if (paginationRow.length > 0) {
+            buttons.push(paginationRow);
+        }
+
+        buttons.push([{
+            text: "🔙 بازگشت به دسته‌ها",
+            callback_data: "shop_categories"
+        }]);
 
         buttons.push([
             { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
