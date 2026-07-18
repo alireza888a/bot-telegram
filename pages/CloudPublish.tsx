@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { Cloud, Zap, Copy, CheckCircle, AlertTriangle, Play, Pause, Globe, Code, ShieldCheck, Download, X } from 'lucide-react';
+import { Cloud, Zap, Copy, CheckCircle, AlertTriangle, Play, Globe, Code, ShieldCheck, Download, X } from 'lucide-react';
 import { generateWorkerCode } from '../services/cloudGenerator.ts';
 import { telegramService } from '../services/telegramService';
 
@@ -33,15 +32,27 @@ export const CloudPublish: React.FC = () => {
     }, [token]);
 
     const handleGenerate = () => {
-        // Gather data
-        const menus = JSON.parse(localStorage.getItem('kb_menus') || '{}');
-        const commands = JSON.parse(localStorage.getItem('bot_commands') || '[]');
-        const queue = JSON.parse(localStorage.getItem('channel_queue') || '[]');
-        const channels = JSON.parse(localStorage.getItem('saved_channels') || '[]');
+        if (!token) {
+            setStatusMsg({ text: 'خطا: توکن ربات تنظیم نشده است. لطفا ابتدا در صفحه "اتصال ربات" توکن را وارد کنید.', type: 'error' });
+            return;
+        }
 
-        const code = generateWorkerCode(token, menus, commands, queue, channels);
+        let licenseCode = '';
+        try {
+            const licenseCache = JSON.parse(localStorage.getItem('license_cache') || '{}');
+            licenseCode = licenseCache.code || '';
+        } catch (e) {
+            console.error('Error reading license_cache', e);
+        }
+
+        if (!licenseCode) {
+            setStatusMsg({ text: 'خطا: لایسنس‌کد معتبر یافت نشد. لطفا ابتدا پنل را فعال کنید.', type: 'error' });
+            return;
+        }
+
+        const code = generateWorkerCode(token, licenseCode);
         setGeneratedCode(code);
-        setStatusMsg({ text: 'کد با موفقیت تولید شد! حاوی منوها و پیام‌های زمان‌بندی شده.', type: 'success' });
+        setStatusMsg({ text: 'کد هوشمند و پویا با موفقیت تولید شد! این کد زنده به این پنل متصل خواهد بود.', type: 'success' });
     };
 
     const handleCopy = () => {
@@ -189,8 +200,8 @@ export const CloudPublish: React.FC = () => {
                         disabled={!webhookUrl || isLoading}
                         className="mt-6 w-full py-3 bg-white/5 hover:bg-green-600 text-slate-300 hover:text-white rounded-xl border border-white/10 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                      >
-                         <Play size={18}/>
-                         {webhookUrl ? 'فعال‌سازی حالت مرورگر' : 'هم‌اکنون فعال است'}
+                          <Play size={18}/>
+                          {webhookUrl ? 'فعال‌سازی حالت مرورگر' : 'هم‌اکنون فعال است'}
                      </button>
                  </GlassCard>
 
@@ -228,20 +239,37 @@ export const CloudPublish: React.FC = () => {
 
             {/* GENERATOR */}
             <GlassCard title="تولید کد Worker">
-                <div className="mb-4 bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl flex gap-3">
-                    <ShieldCheck className="text-blue-400 shrink-0"/>
-                    <div className="text-xs text-blue-200">
-                        <p className="font-bold mb-1">راهنما:</p>
-                        <p>۱. دکمه "تولید کد" را بزنید تا تنظیمات فعلی (منوها + پیام‌های زمان‌بندی شده) تبدیل به کد شوند.</p>
-                        <p>۲. کد را کپی کنید و در <a href="https://workers.cloudflare.com/" target="_blank" className="underline text-white">Cloudflare Workers</a> پیست و Deploy کنید.</p>
-                        <p>۳. آدرس دریافتی را در دکمه "فعال‌سازی حالت ابری" بالا وارد کنید.</p>
+                <div className="mb-6 bg-cyan-950/40 border border-cyan-500/30 p-5 rounded-2xl flex gap-4 shadow-inner shadow-cyan-500/5">
+                    <div className="p-2.5 bg-cyan-500/10 rounded-xl text-cyan-400 shrink-0 h-fit">
+                        <ShieldCheck size={22}/>
+                    </div>
+                    <div className="text-sm text-slate-300 leading-relaxed">
+                        با یک بار انجام مراحل زیر، ربات شما برای همیشه و مستقل از این پنل فعال میماند. هر تغییری که بعداً در منوها، محصولات یا تنظیمات بدهید، خودکار روی ربات منتشرشده اعمال میشود — نیازی به تکرار این مراحل نیست، مگر یکبار برای همیشه.
                     </div>
                 </div>
 
-                <div className="flex justify-end mb-4">
+                <div className="flex flex-wrap gap-3 justify-end mb-5">
+                     <a 
+                        href="https://dash.cloudflare.com/?to=/:account/workers-and-pages" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="px-5 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-medium"
+                     >
+                         🔗 باز کردن Cloudflare Dashboard
+                     </a>
+                     
+                     {generatedCode && (
+                         <button 
+                            onClick={handleCopy}
+                            className="px-5 py-2.5 bg-green-600/90 hover:bg-green-500 text-white rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg shadow-green-600/10"
+                         >
+                             📋 کپی کد
+                         </button>
+                     )}
+
                      <button 
                         onClick={handleGenerate}
-                        className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-lg transition-all flex items-center gap-2"
+                        className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-lg transition-all flex items-center gap-2 text-sm font-bold"
                      >
                          <Code size={18}/>
                          تولید کد ربات
@@ -253,23 +281,23 @@ export const CloudPublish: React.FC = () => {
                         value={generatedCode}
                         readOnly
                         placeholder="کد تولید شده اینجا نمایش داده می‌شود..."
-                        className="w-full h-[400px] bg-[#1e1e1e] border border-white/10 rounded-xl p-4 text-xs font-mono text-green-400 resize-none dir-ltr text-left outline-none"
+                        className="w-full h-[400px] bg-[#121824] border border-white/5 rounded-xl p-5 text-xs font-mono text-cyan-400/90 resize-none dir-ltr text-left outline-none focus:border-cyan-500/20 transition-all shadow-inner"
                         dir="ltr"
                     />
                     {generatedCode && (
                         <div className="absolute top-4 right-4 flex gap-2">
                              <button 
                                 onClick={handleDownload}
-                                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm transition-colors"
+                                className="p-2.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg border border-white/5 transition-all"
                                 title="دانلود فایل"
                              >
                                  <Download size={16}/>
                              </button>
                              <button 
                                 onClick={handleCopy}
-                                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm transition-colors flex items-center gap-1"
+                                className="p-2.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg border border-white/5 transition-all flex items-center gap-1.5 font-medium text-xs"
                              >
-                                 {isCopied ? <CheckCircle size={16} className="text-green-400"/> : <Copy size={16}/>}
+                                 {isCopied ? <CheckCircle size={15} className="text-green-400"/> : <Copy size={15}/>}
                                  {isCopied ? 'کپی شد' : 'کپی'}
                              </button>
                         </div>
