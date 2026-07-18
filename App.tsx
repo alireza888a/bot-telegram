@@ -11,6 +11,7 @@ import { CloudPublish } from './pages/CloudPublish'; // Import new page
 import { Settings } from './pages/Settings';
 import { Users } from './pages/Users';
 import { BotEngine } from './components/BotEngine'; 
+import { useCloudAutoSave } from './hooks/useCloudAutoSave';
 
 const App: React.FC = () => {
   // Persist Current Page
@@ -20,6 +21,9 @@ const App: React.FC = () => {
     }
     return 'dashboard';
   });
+  
+  // Call cloud autosave hook
+  useCloudAutoSave(currentPage);
   
   // Theme Management
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {

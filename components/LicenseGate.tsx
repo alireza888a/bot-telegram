@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Key, ShieldCheck, AlertCircle, Loader2, Lock, RefreshCw, Smartphone } from 'lucide-react';
+import { loadFromCloud } from '../services/cloudSync';
 
 interface LicenseCache {
   code: string;
@@ -50,6 +51,12 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
 
         // Check if checked less than 24 hours ago
         if (cache.code && cache.checkedAt && (now - cache.checkedAt < oneDayMs)) {
+          setIsLoading(true);
+          try {
+            await loadFromCloud(cache.code);
+          } catch (e) {
+            console.warn('loadFromCloud error during cached check:', e);
+          }
           setIsAuthenticated(true);
           setIsLoading(false);
           return;
@@ -103,6 +110,15 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
           validUntil: data.expires_at || '',
         };
         localStorage.setItem('license_cache', JSON.stringify(newCache));
+        
+        // Load state from cloud before showing children
+        setIsLoading(true);
+        try {
+          await loadFromCloud(code.trim());
+        } catch (e) {
+          console.warn('loadFromCloud error during validate:', e);
+        }
+
         setIsAuthenticated(true);
         setErrorMsg(null);
       } else {

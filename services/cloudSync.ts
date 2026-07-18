@@ -1,0 +1,82 @@
+export const saveToCloud = async (code: string): Promise<boolean> => {
+  try {
+    if (!code) return false;
+    
+    const backupData = {
+      meta: {
+        version: "2.5.3",
+        exported_at: new Date().toISOString(),
+        type: "full_backup"
+      },
+      config: {
+        token: localStorage.getItem('bot_token'),
+        db_channel: localStorage.getItem('bot_db_channel'),
+        webhook_url: localStorage.getItem('bot_webhook_url'),
+        theme: localStorage.getItem('theme'),
+        force_join: localStorage.getItem('force_join_enabled')
+      },
+      data: {
+        menus: JSON.parse(localStorage.getItem('kb_menus') || '{}'),
+        forms: JSON.parse(localStorage.getItem('kb_forms') || '{}'),
+        commands: JSON.parse(localStorage.getItem('bot_commands') || '[]'),
+        channels: JSON.parse(localStorage.getItem('saved_channels') || '[]'),
+        templates: JSON.parse(localStorage.getItem('broadcast_templates') || '[]')
+      }
+    };
+
+    const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/data/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code, data: backupData })
+    });
+    
+    const result = await res.json();
+    return !!result.ok;
+  } catch (e) {
+    console.warn('Failed to save state to cloud:', e);
+    return false;
+  }
+};
+
+export const loadFromCloud = async (code: string): Promise<boolean> => {
+  try {
+    if (!code) return false;
+
+    const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/data/load', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code })
+    });
+
+    const result = await res.json();
+    if (result.ok && result.data) {
+      const json = result.data;
+
+      // Restore Config
+      if (json.config) {
+        if (json.config.token) localStorage.setItem('bot_token', json.config.token);
+        if (json.config.db_channel) localStorage.setItem('bot_db_channel', json.config.db_channel);
+        if (json.config.webhook_url) localStorage.setItem('bot_webhook_url', json.config.webhook_url);
+        if (json.config.force_join) localStorage.setItem('force_join_enabled', json.config.force_join);
+      }
+
+      // Restore Data
+      if (json.data) {
+        localStorage.setItem('kb_menus', JSON.stringify(json.data.menus || {}));
+        localStorage.setItem('kb_forms', JSON.stringify(json.data.forms || {}));
+        localStorage.setItem('bot_commands', JSON.stringify(json.data.commands || []));
+        localStorage.setItem('saved_channels', JSON.stringify(json.data.channels || []));
+        localStorage.setItem('broadcast_templates', JSON.stringify(json.data.templates || []));
+      }
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.warn('Failed to load state from cloud:', e);
+    return false;
+  }
+};
