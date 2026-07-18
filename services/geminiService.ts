@@ -1,13 +1,41 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialize the client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+/**
+ * Lazy-initializer for the Gemini client.
+ * Returns null if the API key is not present, rather than throwing on module load.
+ */
+const getGeminiClient = (): GoogleGenAI | null => {
+  if (aiInstance) return aiInstance;
+
+  try {
+    // Safely retrieve the key, supporting Vite defines or server-side process env
+    const apiKey = typeof process !== "undefined" && process?.env ? process.env.API_KEY : undefined;
+    
+    if (!apiKey) {
+      console.warn("Gemini API key is not configured or is empty.");
+      return null;
+    }
+
+    aiInstance = new GoogleGenAI({ apiKey });
+    return aiInstance;
+  } catch (error) {
+    console.error("Failed to initialize GoogleGenAI client:", error);
+    return null;
+  }
+};
 
 /**
  * Generates a broadcast message for a Telegram channel based on a short topic.
  */
 export const generateBroadcastMessage = async (topic: string, tone: string = 'formal'): Promise<string> => {
   try {
+    const ai = getGeminiClient();
+    if (!ai) {
+      return "خطا: کلید API برای هوش مصنوعی تنظیم نشده است. این قابلیت در حال حاضر در دسترس نیست.";
+    }
+
     const prompt = `
       You are an expert social media manager for a Persian Telegram channel.
       Write a compelling broadcast message in Persian (Farsi) about the following topic: "${topic}".
@@ -39,6 +67,12 @@ export const generateBroadcastMessage = async (topic: string, tone: string = 'fo
  */
 export const suggestButtonLabels = async (postContent: string): Promise<string[]> => {
   try {
+    const ai = getGeminiClient();
+    if (!ai) {
+      console.warn("Gemini client is not available. Using default fallback labels.");
+      return ["لینک", "تایید", "عضویت"];
+    }
+
     const prompt = `
       Based on the following Telegram post content (in Persian), suggest 4 short, catchy labels for inline buttons (e.g., "Buy Now", "Join Channel", "Read More").
       
