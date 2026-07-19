@@ -677,6 +677,9 @@ export const Broadcast: React.FC = () => {
                         <div className="flex gap-2 mb-4">
                             <button onClick={() => addInlineRow(1)} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded text-xs border border-white/10">+ افزودن ردیف</button>
                         </div>
+                        <div className="text-[10px] text-amber-500/90 mb-3 bg-amber-500/5 border border-amber-500/10 p-2.5 rounded-lg leading-relaxed">
+                            ⚠️ رنگ‌های طلایی و نارنجی فقط در پیش‌نمایش پنل دیده می‌شوند؛ تلگرام به صورت واقعی فقط آبی، سبز و قرمز را پشتیبانی می‌کند.
+                        </div>
                         <div className="space-y-4">
                             {inlineRows.map((row) => (
                                 <div key={row.id} className="bg-black/20 border border-white/5 rounded-xl p-3 relative">

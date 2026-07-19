@@ -1065,6 +1065,9 @@ export const KeyboardBuilder: React.FC = () => {
                       <option value="gold">🟡 طلایی ستاره‌ای (پرایم/ستاره تلگرام)</option>
                       <option value="orange">🟠 نارنجی پرانرژی (خرید/لینک ویژه)</option>
                    </select>
+                   <p className="text-[10px] text-amber-500/90 mt-1 leading-relaxed">
+                      ⚠️ رنگ‌های طلایی و نارنجی فقط در پیش‌نمایش پنل دیده می‌شوند؛ تلگرام به صورت واقعی فقط آبی، سبز و قرمز را پشتیبانی می‌کند.
+                   </p>
                 </div>
 
                 <div>

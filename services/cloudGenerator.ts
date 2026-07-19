@@ -408,6 +408,14 @@ async function handleUpdate(update, state) {
   return hasChanged;
 }
 
+// --- COLOR MAP TO STYLE ---
+function mapColorToStyle(color) {
+  if (color === 'blue') return 'primary';
+  if (color === 'green') return 'success';
+  if (color === 'red') return 'danger';
+  return undefined;
+}
+
 // --- TELEGRAM RENDERERS & LAYOUT BUILDERS ---
 
 async function sendMenu(chatId, menu, user, state) {
@@ -416,7 +424,8 @@ async function sendMenu(chatId, menu, user, state) {
         ...(menu.rows || []).map(r => r.buttons.map(b => ({
             text: b.text,
             callback_data: b.type === 'link' ? undefined : (b.type==='submenu' ? (b.targetMenuId || 'root') : (b.type==='form' ? b.targetFormId : 'noop')),
-            url: b.type === 'link' ? b.value : undefined
+            url: b.type === 'link' ? b.value : undefined,
+            style: mapColorToStyle(b.color)
         }))),
         ...(menu.id !== 'root' ? [[{text: '🏠 منوی اصلی', callback_data: 'root'}, {text: '🔙 بازگشت', callback_data: menu.parentId || 'root'}]] : [])
     ]
@@ -721,7 +730,8 @@ async function processQueue(state) {
                   inline_keyboard: finalRows.map(r => r.buttons.map(b => ({
                       text: b.text,
                       url: b.type === 'link' ? b.value : undefined,
-                      callback_data: b.type !== 'link' ? (b.value || 'noop') : undefined
+                      callback_data: b.type !== 'link' ? (b.value || 'noop') : undefined,
+                      style: mapColorToStyle(b.color)
                   })))
               };
           }

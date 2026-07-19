@@ -76,6 +76,14 @@ const processMessageContent = (content: string, user: any) => {
         .replace(/{time}|{ساعت}/g, now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }));
 };
 
+// --- COLOR MAP TO STYLE ---
+const mapColorToStyle = (color?: string) => {
+    if (color === 'blue') return 'primary';
+    if (color === 'green') return 'success';
+    if (color === 'red') return 'danger';
+    return undefined;
+};
+
 export const BotEngine: React.FC = () => {
     const offsetRef = useRef(0);
     const isProcessingRef = useRef(false);
@@ -182,7 +190,8 @@ export const BotEngine: React.FC = () => {
                 inline_keyboard: finalRows.map(r => r.buttons.map(b => ({
                     text: b.text,
                     url: b.type === 'link' ? b.value : undefined,
-                    callback_data: b.type !== 'link' ? (b.value || 'noop') : undefined
+                    callback_data: b.type !== 'link' ? (b.value || 'noop') : undefined,
+                    style: mapColorToStyle(b.color)
                 })))
             };
         }
@@ -577,7 +586,8 @@ export const BotEngine: React.FC = () => {
                 ...menu.rows.map(r => r.buttons.map(b => ({
                     text: b.text,
                     callback_data: b.type === 'link' ? undefined : (b.type==='submenu' ? (b.targetMenuId||'root') : (b.type==='form'?b.value:'noop')),
-                    url: b.type === 'link' ? b.value : undefined
+                    url: b.type === 'link' ? b.value : undefined,
+                    style: mapColorToStyle(b.color)
                 }))),
                 ...(menu.id !== 'root' ? [[{text: '🏠 منوی اصلی', callback_data: 'root'}, {text: '🔙 بازگشت', callback_data: menu.parentId || 'root'}]] : [])
             ]
