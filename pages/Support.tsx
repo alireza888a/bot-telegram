@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { MessageCircle, Send, AlertTriangle, CheckCircle, Clock, MessageSquare, Loader2 } from 'lucide-react';
+import { MessageCircle, Send, AlertTriangle, CheckCircle, Clock, MessageSquare, Loader2, Paperclip, X } from 'lucide-react';
 
 interface Ticket {
     id?: string | number;
@@ -13,10 +13,13 @@ interface Ticket {
     created_at?: string | number;
     createdAt?: string | number;
     date?: string | number;
+    image?: string;
 }
 
 export const Support: React.FC = () => {
     const [newMessage, setNewMessage] = useState('');
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [imageName, setImageName] = useState<string>('');
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,6 +71,31 @@ export const Support: React.FC = () => {
         }
     }, [licenseCode]);
 
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Check size limit: 2MB = 2 * 1024 * 1024 bytes
+        if (file.size > 2 * 1024 * 1024) {
+            setStatusMsg({ text: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد.', type: 'error' });
+            e.target.value = ''; // Reset input
+            return;
+        }
+
+        setStatusMsg(null);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setSelectedImage(reader.result as string);
+            setImageName(file.name);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleRemoveImage = () => {
+        setSelectedImage(null);
+        setImageName('');
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim()) return;
@@ -80,16 +108,26 @@ export const Support: React.FC = () => {
         setIsSubmitting(true);
         setStatusMsg(null);
         try {
+            const bodyPayload: any = { 
+                code: licenseCode, 
+                message: newMessage.trim() 
+            };
+            if (selectedImage) {
+                bodyPayload.image = selectedImage;
+            }
+
             const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/tickets/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ code: licenseCode, message: newMessage.trim() })
+                body: JSON.stringify(bodyPayload)
             });
             const data = await res.json();
             if (res.ok || data.ok) {
                 setNewMessage('');
+                setSelectedImage(null);
+                setImageName('');
                 setStatusMsg({ text: 'تیکت شما با موفقیت ثبت شد و در صف بررسی قرار گرفت.', type: 'success' });
                 await fetchTickets();
             } else {
@@ -154,6 +192,45 @@ export const Support: React.FC = () => {
                                 />
                             </div>
 
+                            {/* Image Attachment Field */}
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer text-sm text-slate-300 transition-colors">
+                                        <Paperclip size={16} className="text-blue-400" />
+                                        <span>📎 افزودن عکس (اختیاری)</span>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            onChange={handleImageChange}
+                                            className="hidden" 
+                                        />
+                                    </label>
+                                    {selectedImage && (
+                                        <span className="text-xs text-slate-400 truncate max-w-xs font-mono">
+                                            {imageName}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {selectedImage && (
+                                    <div className="relative inline-block self-start group mt-1">
+                                        <img 
+                                            src={selectedImage} 
+                                            alt="Preview" 
+                                            className="max-h-[120px] rounded-xl object-cover border border-white/10 shadow-lg"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveImage}
+                                            className="absolute -top-2 -left-2 p-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full shadow-md transition-colors"
+                                            title="حذف عکس"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             {statusMsg && (
                                 <div className={`p-4 rounded-xl flex items-center gap-3 text-sm ${statusMsg.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                                     {statusMsg.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
@@ -197,6 +274,7 @@ export const Support: React.FC = () => {
                                     const userMsg = ticket.message || ticket.content || ticket.text || '';
                                     const replyMsg = ticket.admin_reply || ticket.adminReply || ticket.reply || '';
                                     const dateVal = ticket.created_at || ticket.createdAt || ticket.date || '';
+                                    const ticketImage = ticket.image;
 
                                     return (
                                         <div 
@@ -222,8 +300,19 @@ export const Support: React.FC = () => {
                                             </div>
 
                                             {/* User Message content */}
-                                            <div className="text-sm text-slate-200 leading-relaxed bg-black/10 p-4 rounded-xl border border-white/5">
-                                                {userMsg}
+                                            <div className="text-sm text-slate-200 leading-relaxed bg-black/10 p-4 rounded-xl border border-white/5 space-y-4">
+                                                <p className="whitespace-pre-wrap">{userMsg}</p>
+                                                {ticketImage && (
+                                                    <div className="mt-2">
+                                                        <a href={ticketImage} target="_blank" rel="noreferrer" className="inline-block">
+                                                            <img 
+                                                                src={ticketImage} 
+                                                                alt="ضمیمه تیکت" 
+                                                                className="max-w-[250px] rounded-xl border border-white/10 hover:border-blue-500/50 transition-all duration-300 shadow-md cursor-pointer"
+                                                            />
+                                                        </a>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Admin Reply content */}
@@ -233,7 +322,7 @@ export const Support: React.FC = () => {
                                                         <MessageSquare size={14} />
                                                         <span>پاسخ پشتیبانی:</span>
                                                     </div>
-                                                    <p className="text-sm text-slate-300 leading-relaxed">
+                                                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
                                                         {replyMsg}
                                                     </p>
                                                 </div>
