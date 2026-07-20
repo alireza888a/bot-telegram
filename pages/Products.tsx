@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Plus, Trash2, Edit, ShoppingBag, CheckCircle, X, DollarSign, Image as ImageIcon, ToggleLeft, ToggleRight, Check } from 'lucide-react';
 import { Product } from '../types';
+import { telegramService } from '../services/telegramService';
 
 export const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(() => {
@@ -22,6 +23,39 @@ export const Products: React.FC = () => {
   const [imageUrl, setImageUrl] = useState('');
   const [active, setActive] = useState(true);
   const [category, setCategory] = useState('');
+
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const token = localStorage.getItem('bot_token') || '';
+      const dbChannel = localStorage.getItem('bot_db_channel') || '';
+
+      if (!token || !dbChannel) {
+        alert('هشدار: کانال دیتابیس یا توکن ربات تنظیم نشده است. ابتدا از بخش تنظیمات ربات، توکن و کانال دیتابیس را ست کنید.');
+        return;
+      }
+
+      setIsUploading(true);
+      try {
+        const uploadedId = await telegramService.uploadToDb(token, dbChannel, file, 'image');
+        if (uploadedId) {
+          setImageUrl(uploadedId);
+          console.log(`Product image uploaded to DB. ID: ${uploadedId}`);
+        } else {
+          alert('هشدار: آپلود در کانال دیتابیس ناموفق بود. لطفا بررسی کنید که ربات در کانال دیتابیس "ادمین" باشد و آیدی کانال صحیح وارد شده باشد (شروع با -100).');
+        }
+      } catch (err) {
+        console.error('Failed to upload product image to DB channel', err);
+        alert('خطا در ارتباط با تلگرام برای آپلود فایل. لطفا اتصال اینترنت و VPN را بررسی کنید.');
+      } finally {
+        setIsUploading(false);
+        e.target.value = '';
+      }
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('bot_products', JSON.stringify(products));
@@ -135,14 +169,22 @@ export const Products: React.FC = () => {
             <GlassCard key={product.id} className="relative flex flex-col justify-between overflow-hidden group">
               <div>
                 {/* Product Image */}
-                <div className="relative h-48 -mx-6 -mt-6 mb-4 bg-slate-900/40 border-b dark:border-white/5 border-black/5 flex items-center justify-center overflow-hidden">
+                <div className="relative h-48 -mx-6 -mt-6 mb-4 bg-slate-900/40 border-b dark:border-white/5 border-black/5 flex items-center justify-center p-4 overflow-hidden text-center">
                   {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
+                    (!product.imageUrl.startsWith('http') && !product.imageUrl.startsWith('blob:') && !product.imageUrl.startsWith('data:')) ? (
+                      <div className="flex flex-col items-center gap-2 text-blue-400 p-4">
+                        <ImageIcon size={32} className="animate-pulse" />
+                        <span className="text-xs font-medium leading-relaxed">📷 عکس آپلودشده (فقط توی تلگرام قابل مشاهده)</span>
+                        <span className="text-[10px] text-slate-500 font-mono break-all line-clamp-1">{product.imageUrl}</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    )
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-slate-500">
                       <ImageIcon size={36} />
@@ -269,15 +311,55 @@ export const Products: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">آدرس تصویر (URL - اختیاری)</label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={e => setImageUrl(e.target.value)}
-                  placeholder="مثال: https://example.com/image.jpg"
-                  className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors text-right"
-                  dir="ltr"
-                />
+                <label className="block text-xs text-slate-400 mb-1.5">تصویر محصول (آپلود مستقیم یا آدرس اینترنتی)</label>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 border border-blue-500/20 transition-all text-sm font-medium flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isUploading ? (
+                        <span>⏳ در حال آپلود...</span>
+                      ) : (
+                        <span>📤 آپلود عکس از گالری</span>
+                      )}
+                    </button>
+                    {imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setImageUrl('')}
+                        className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-all flex items-center justify-center"
+                        title="حذف عکس"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                  
+                  <input
+                    type="text"
+                    value={imageUrl}
+                    onChange={e => setImageUrl(e.target.value)}
+                    placeholder="یا آدرس عکس را اینجا وارد کنید: https://..."
+                    className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors text-right text-xs"
+                    dir="ltr"
+                  />
+                  {imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('blob:') && !imageUrl.startsWith('data:') && (
+                    <p className="text-[10px] text-blue-400 flex items-center gap-1 bg-blue-500/5 p-2 rounded-lg border border-blue-500/10">
+                      <CheckCircle size={12} />
+                      <span>عکس با شناسه تلگرام با موفقیت تنظیم شد.</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div>
