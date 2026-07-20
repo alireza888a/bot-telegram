@@ -450,17 +450,29 @@ async function sendShopCatalog(chatId, user, state) {
   const categories = Array.from(new Set(activeProducts.map(p => (p.category || '').trim() || 'عمومی'))).sort((a, b) => a.localeCompare(b, 'fa'));
 
   if (categories.length <= 1 && activeProducts.length <= 5) {
-      let text = "🛍️ <b>محصولات فروشگاه:</b>\\n\\n";
-      const buttons = [];
+      await sendMessage(chatId, "🛍️ <b>کاتالوگ محصولات فروشگاه</b>\\n\\nلطفاً برای خرید هر محصول روی دکمه افزودن به سبد خرید کلیک کنید:");
+
       for (const p of activeProducts) {
-          text += "▫️ <b>" + p.name + "</b>\\n   قیمت: " + p.price.toLocaleString('fa-IR') + " تومان\\n   توضیحات: " + (p.description || 'ندارد') + "\\n\\n";
-          buttons.push([{ text: "🛒 افزودن " + p.name + " به سبد", callback_data: "cart_add_" + p.id }]);
+          const caption = "🔹 <b>" + p.name + "</b>\\n💰 قیمت: " + p.price.toLocaleString('fa-IR') + " تومان\\n📝 " + (p.description || 'بدون توضیحات.');
+          const replyMarkup = {
+              inline_keyboard: [[{
+                  text: "🛒 افزودن " + p.name + " به سبد",
+                  callback_data: "cart_add_" + p.id
+              }]]
+          };
+
+          if (p.imageUrl) {
+              await sendPhoto(chatId, p.imageUrl, caption, replyMarkup);
+          } else {
+              await sendMessage(chatId, caption, replyMarkup);
+          }
       }
-      buttons.push([
+
+      const footerButtons = [[
           { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
           { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" }
-      ]);
-      await sendMessage(chatId, text, { inline_keyboard: buttons });
+      ]];
+      await sendMessage(chatId, "🛒 <b>عملیات سبد خرید:</b>", { inline_keyboard: footerButtons });
   } else {
       const text = "🛍️ <b>دسته‌بندی‌های فروشگاه:</b>\\n\\nلطفاً یک دسته انتخاب کنید:";
       const buttons = categories.map((cat, idx) => ([{
@@ -485,14 +497,30 @@ async function sendCategoryProducts(chatId, user, catIndex, page, state) {
   const offset = page * 5;
   const pageProducts = catProducts.slice(offset, offset + 5);
 
-  let text = "📂 <b>دسته: " + targetCategory + "</b> (صفحه " + (page + 1) + ")\\n\\n";
-  const buttons = [];
-
-  for (const p of pageProducts) {
-      text += "▫️ <b>" + p.name + "</b>\\n   قیمت: " + p.price.toLocaleString('fa-IR') + " تومان\\n   توضیحات: " + (p.description || 'ندارد') + "\\n\\n";
-      buttons.push([{ text: "🛒 افزودن " + p.name + " به سبد", callback_data: "cart_add_" + p.id }]);
+  if (pageProducts.length === 0) {
+      await sendMessage(chatId, "📦 محصولی در این صفحه وجود ندارد.");
+      return;
   }
 
+  await sendMessage(chatId, "📁 <b>دسته‌بندی: " + targetCategory + "</b> (صفحه " + (page + 1) + ")");
+
+  for (const p of pageProducts) {
+      const caption = "🔹 <b>" + p.name + "</b>\\n💰 قیمت: " + p.price.toLocaleString('fa-IR') + " تومان\\n📝 " + (p.description || 'بدون توضیحات.');
+      const replyMarkup = {
+          inline_keyboard: [[{
+              text: "🛒 افزودن " + p.name + " به سبد",
+              callback_data: "cart_add_" + p.id
+          }]]
+      };
+
+      if (p.imageUrl) {
+          await sendPhoto(chatId, p.imageUrl, caption, replyMarkup);
+      } else {
+          await sendMessage(chatId, caption, replyMarkup);
+      }
+  }
+
+  const footerButtons = [];
   const paginationRow = [];
   if (page > 0) {
       paginationRow.push({ text: "◀️ صفحه قبل", callback_data: "shop_cat_" + catIndex + "_" + (page - 1) });
@@ -501,16 +529,16 @@ async function sendCategoryProducts(chatId, user, catIndex, page, state) {
       paginationRow.push({ text: "▶️ صفحه بعد", callback_data: "shop_cat_" + catIndex + "_" + (page + 1) });
   }
   if (paginationRow.length > 0) {
-      buttons.push(paginationRow);
+      footerButtons.push(paginationRow);
   }
 
-  buttons.push([{ text: "🔙 بازگشت به دسته‌ها", callback_data: "shop_categories" }]);
-  buttons.push([
+  footerButtons.push([{ text: "🔙 بازگشت به دسته‌ها", callback_data: "shop_categories" }]);
+  footerButtons.push([
       { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
       { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" }
   ]);
 
-  await sendMessage(chatId, text, { inline_keyboard: buttons });
+  await sendMessage(chatId, "⚙️ <b>مدیریت فروشگاه و سبد خرید:</b>", { inline_keyboard: footerButtons });
 }
 
 // --- CATALOG SHOPPING ENGINE LOGIC ---

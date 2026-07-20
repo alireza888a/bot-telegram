@@ -622,23 +622,35 @@ export const BotEngine: React.FC = () => {
         const categories = Array.from(new Set(activeProducts.map(p => (p.category || '').trim() || 'عمومی'))).sort((a, b) => a.localeCompare(b, 'fa'));
 
         if (categories.length <= 1 && activeProducts.length <= 5) {
-            let messageText = "🛍️ <b>کاتالوگ محصولات فروشگاه</b>\n\nلطفاً برای خرید هر محصول روی دکمه افزودن به سبد خرید کلیک کنید:\n\n";
-            const buttons = [];
+            await telegramService.sendMessage(
+                token, 
+                chatId, 
+                "🛍️ <b>کاتالوگ محصولات فروشگاه</b>\n\nلطفاً برای خرید هر محصول روی دکمه افزودن به سبد خرید کلیک کنید:"
+            );
 
             for (const p of activeProducts) {
-                messageText += `🔹 <b>${p.name}</b>\n💰 قیمت: ${p.price.toLocaleString('fa-IR')} تومان\n📝 ${p.description || 'بدون توضیحات.'}\n\n`;
-                buttons.push([{
-                    text: `🛒 افزودن ${p.name} به سبد`,
-                    callback_data: `cart_add_${p.id}`
-                }]);
+                const caption = `🔹 <b>${p.name}</b>\n💰 قیمت: ${p.price.toLocaleString('fa-IR')} تومان\n📝 ${p.description || 'بدون توضیحات.'}`;
+                const replyMarkup = {
+                    inline_keyboard: [[{
+                        text: `🛒 افزودن ${p.name} به سبد`,
+                        callback_data: `cart_add_${p.id}`
+                    }]]
+                };
+
+                if (p.imageUrl) {
+                    await telegramService.sendPhoto(token, chatId, p.imageUrl, caption, replyMarkup);
+                } else {
+                    await telegramService.sendMessage(token, chatId, caption, replyMarkup);
+                }
             }
 
-            buttons.push([
-                { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
-                { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" }
-            ]);
-
-            await telegramService.sendMessage(token, chatId, messageText, { inline_keyboard: buttons });
+            const footerButtons = [
+                [
+                    { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
+                    { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" }
+                ]
+            ];
+            await telegramService.sendMessage(token, chatId, "🛒 <b>عملیات سبد خرید:</b>", { inline_keyboard: footerButtons });
         } else {
             const messageText = "🛍️ <b>لطفاً یک دسته انتخاب کنید:</b>";
             const buttons = [];
@@ -685,17 +697,25 @@ export const BotEngine: React.FC = () => {
             return;
         }
 
-        let messageText = `📁 <b>دسته‌بندی: ${targetCategory}</b>\n\n`;
-        const buttons = [];
+        await telegramService.sendMessage(token, chatId, `📁 <b>دسته‌بندی: ${targetCategory}</b> (صفحه ${page + 1})`);
 
         for (const p of pageProducts) {
-            messageText += `🔹 <b>${p.name}</b>\n💰 قیمت: ${p.price.toLocaleString('fa-IR')} تومان\n📝 ${p.description || 'بدون توضیحات.'}\n\n`;
-            buttons.push([{
-                text: `🛒 افزودن ${p.name} به سبد`,
-                callback_data: `cart_add_${p.id}`
-            }]);
+            const caption = `🔹 <b>${p.name}</b>\n💰 قیمت: ${p.price.toLocaleString('fa-IR')} تومان\n📝 ${p.description || 'بدون توضیحات.'}`;
+            const replyMarkup = {
+                inline_keyboard: [[{
+                    text: `🛒 افزودن ${p.name} به سبد`,
+                    callback_data: `cart_add_${p.id}`
+                }]]
+            };
+
+            if (p.imageUrl) {
+                await telegramService.sendPhoto(token, chatId, p.imageUrl, caption, replyMarkup);
+            } else {
+                await telegramService.sendMessage(token, chatId, caption, replyMarkup);
+            }
         }
 
+        const footerButtons = [];
         const paginationRow = [];
         if (page > 0) {
             paginationRow.push({
@@ -710,20 +730,20 @@ export const BotEngine: React.FC = () => {
             });
         }
         if (paginationRow.length > 0) {
-            buttons.push(paginationRow);
+            footerButtons.push(paginationRow);
         }
 
-        buttons.push([{
+        footerButtons.push([{
             text: "🔙 بازگشت به دسته‌ها",
             callback_data: "shop_categories"
         }]);
 
-        buttons.push([
+        footerButtons.push([
             { text: "🧺 مشاهده سبد خرید", callback_data: "cart_view" },
             { text: "🗑️ خالی کردن سبد", callback_data: "cart_clear" }
         ]);
 
-        await telegramService.sendMessage(token, chatId, messageText, { inline_keyboard: buttons });
+        await telegramService.sendMessage(token, chatId, "⚙️ <b>مدیریت فروشگاه و سبد خرید:</b>", { inline_keyboard: footerButtons });
     };
 
     const handleCartAdd = async (token: string, chatId: number | string, user: any, productId: string, callbackQueryId: string) => {
