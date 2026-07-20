@@ -170,8 +170,8 @@ export const Products: React.FC = () => {
               <div>
                 {/* Product Image */}
                 <div className="relative h-48 -mx-6 -mt-6 mb-4 bg-slate-900/40 border-b dark:border-white/5 border-black/5 flex items-center justify-center p-4 overflow-hidden text-center">
-                  {product.imageUrl ? (
-                    (!product.imageUrl.startsWith('http') && !product.imageUrl.startsWith('blob:') && !product.imageUrl.startsWith('data:')) ? (
+                  {product.imageUrl && product.imageUrl.trim() !== '' ? (
+                    (!product.imageUrl.trim().startsWith('http') && !product.imageUrl.trim().startsWith('blob:') && !product.imageUrl.trim().startsWith('data:')) ? (
                       <div className="flex flex-col items-center gap-2 text-blue-400 p-4">
                         <ImageIcon size={32} className="animate-pulse" />
                         <span className="text-xs font-medium leading-relaxed">📷 عکس آپلودشده (فقط توی تلگرام قابل مشاهده)</span>
@@ -353,7 +353,7 @@ export const Products: React.FC = () => {
                     className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors text-right text-xs"
                     dir="ltr"
                   />
-                  {imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('blob:') && !imageUrl.startsWith('data:') && (
+                  {imageUrl && imageUrl.trim() !== '' && !imageUrl.trim().startsWith('http') && !imageUrl.trim().startsWith('blob:') && !imageUrl.trim().startsWith('data:') && (
                     <p className="text-[10px] text-blue-400 flex items-center gap-1 bg-blue-500/5 p-2 rounded-lg border border-blue-500/10">
                       <CheckCircle size={12} />
                       <span>عکس با شناسه تلگرام با موفقیت تنظیم شد.</span>
