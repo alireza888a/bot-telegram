@@ -140,6 +140,9 @@ export const Products: React.FC = () => {
           <p className="text-xs dark:text-white/50 text-slate-500 mt-1">
             محصولات فروشگاه تلگرامی خود را از این قسمت مدیریت، ویرایش و اضافه کنید.
           </p>
+          <p className="text-xs text-blue-400/90 font-medium mt-1">
+            💡 محصولات رو می‌تونی مستقیم داخل دکمه‌ساز هم اضافه یا انتخاب کنی.
+          </p>
         </div>
 
         <button

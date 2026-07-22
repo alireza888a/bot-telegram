@@ -23,7 +23,7 @@ export interface BotConfig {
   isActive: boolean;
 }
 
-export type ButtonActionType = 'link' | 'submenu' | 'form' | 'command' | 'callback' | 'inquiry';
+export type ButtonActionType = 'link' | 'submenu' | 'form' | 'command' | 'callback' | 'inquiry' | 'product';
 
 export interface InquiryConfig {
     adminId: string; // The admin who receives the lead
@@ -40,6 +40,7 @@ export interface InlineButton {
   value?: string; // URL, Command, or Webview URL
   targetMenuId?: string; // ID of the submenu Page if type is 'submenu'
   inquiryConfig?: InquiryConfig; // NEW: For Inquiry/Lead Gen buttons
+  productId?: string; // NEW: For Mini Shop Product buttons
   color?: 'default' | 'blue' | 'green' | 'red' | 'gold' | 'orange'; // NEW: Colored inline buttons
 }
 
@@ -157,6 +158,7 @@ export interface Product {
   imageUrl?: string;
   active: boolean;
   category?: string;
+  stock?: number;
 }
 
 export interface CartItem {

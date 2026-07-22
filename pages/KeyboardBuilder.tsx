@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { Plus, Trash2, Link as LinkIcon, Edit3, Eye, Sparkles, LayoutGrid, Music, Video, Image as ImageIcon, MessageSquare, Layers, Command, FileText, ArrowLeft, ArrowRight, CornerUpRight, Home, Copy, ArrowUp, ArrowDown, List, Reply, Download, Upload, FileJson, LayoutTemplate, Zap, Check, Lock, Globe, Terminal, X, Send, UserCog, ListChecks, RefreshCcw, Cloud, PhoneCall, FileInput, File, AlertTriangle } from 'lucide-react';
-import { InlineRow, InlineButton, ButtonActionType, MediaAttachment, MenuPage, FormConfig, FormQuestion, InquiryConfig } from '../types';
+import { Plus, Trash2, Link as LinkIcon, Edit3, Eye, Sparkles, LayoutGrid, Music, Video, Image as ImageIcon, MessageSquare, Layers, Command, FileText, ArrowLeft, ArrowRight, CornerUpRight, Home, Copy, ArrowUp, ArrowDown, List, Reply, Download, Upload, FileJson, LayoutTemplate, Zap, Check, Lock, Globe, Terminal, X, Send, UserCog, ListChecks, RefreshCcw, Cloud, PhoneCall, FileInput, File, AlertTriangle, ShoppingBag, DollarSign } from 'lucide-react';
+import { InlineRow, InlineButton, ButtonActionType, MediaAttachment, MenuPage, FormConfig, FormQuestion, InquiryConfig, Product } from '../types';
 import { suggestButtonLabels } from '../services/geminiService';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
@@ -59,6 +59,104 @@ export const KeyboardBuilder: React.FC = () => {
   // Simulation State for Forms in Preview
   const [simFormStep, setSimFormStep] = useState(0);
   const [simFormAnswers, setSimFormAnswers] = useState<string[]>([]);
+
+  // Quick Product Modal States
+  const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
+  const [prodName, setProdName] = useState('');
+  const [prodPrice, setProdPrice] = useState<number | ''>('');
+  const [prodDesc, setProdDesc] = useState('');
+  const [prodCategory, setProdCategory] = useState('');
+  const [prodImage, setProdImage] = useState('');
+  const [isProdUploading, setIsProdUploading] = useState(false);
+  const prodFileInputRef = useRef<HTMLInputElement>(null);
+
+  const getProducts = (): Product[] => {
+    try {
+      return JSON.parse(localStorage.getItem('bot_products') || '[]');
+    } catch {
+      return [];
+    }
+  };
+
+  const getButtonDisplayText = (btn: InlineButton): string => {
+    if (btn.type === 'product') {
+      if (btn.productId) {
+        const products = getProducts();
+        const prod = products.find(p => p.id === btn.productId);
+        if (prod) {
+          return `🛒 ${prod.name} — ${prod.price.toLocaleString('fa-IR')} تومان`;
+        }
+      }
+      return btn.text || '🛒 محصول فروشگاهی';
+    }
+    return btn.text;
+  };
+
+  const handleProdImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (!token || !dbChannel) {
+        alert('هشدار: کانال دیتابیس یا توکن ربات تنظیم نشده است.');
+        return;
+      }
+      setIsProdUploading(true);
+      try {
+        const uploadedId = await telegramService.uploadToDb(token, dbChannel, file, 'image');
+        if (uploadedId) {
+          setProdImage(uploadedId);
+        } else {
+          alert('هشدار: آپلود در کانال دیتابیس ناموفق بود.');
+        }
+      } catch (err) {
+        alert('خطا در ارتباط با تلگرام.');
+      } finally {
+        setIsProdUploading(false);
+        e.target.value = '';
+      }
+    }
+  };
+
+  const handleQuickProductSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prodName || prodPrice === '') {
+      alert('لطفاً نام و قیمت محصول را وارد کنید.');
+      return;
+    }
+    const newProd: Product = {
+      id: 'prod_' + Math.random().toString(36).substr(2, 9),
+      name: prodName,
+      price: Number(prodPrice),
+      description: prodDesc,
+      category: prodCategory.trim() || 'عمومی',
+      imageUrl: prodImage || undefined,
+      active: true
+    };
+
+    let existing: Product[] = [];
+    try {
+      existing = JSON.parse(localStorage.getItem('bot_products') || '[]');
+    } catch {}
+
+    const updated = [...existing, newProd];
+    localStorage.setItem('bot_products', JSON.stringify(updated));
+    syncNow();
+
+    if (selectedButton) {
+      const formattedText = `🛒 ${newProd.name} — ${newProd.price.toLocaleString('fa-IR')} تومان`;
+      updateCurrentButton({
+        type: 'product',
+        productId: newProd.id,
+        text: formattedText
+      });
+    }
+
+    setProdName('');
+    setProdPrice('');
+    setProdDesc('');
+    setProdCategory('');
+    setProdImage('');
+    setIsNewProductModalOpen(false);
+  };
 
   // 2. Auto-Save Effects
   useEffect(() => {
@@ -286,6 +384,14 @@ export const KeyboardBuilder: React.FC = () => {
               break;
           case 'inquiry':
               setPreviewModal({ type: 'inquiry', value: 'catalog' });
+              break;
+          case 'product':
+              if (btn.productId) {
+                  const prod = getProducts().find(p => p.id === btn.productId);
+                  alert(`🛒 محصول "${prod?.name || 'انتخابی'}" به سبد خرید اضافه شد (شبیه‌سازی).`);
+              } else {
+                  alert('محصولی برای این دکمه انتخاب نشده است.');
+              }
               break;
           case 'command':
               setPreviewInput(`/${btn.value || 'start'}`);
@@ -692,6 +798,123 @@ export const KeyboardBuilder: React.FC = () => {
           </div>
       )}
       
+      {/* Quick Product Creation Modal */}
+      {isNewProductModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+              <div className="bg-[#1e293b] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden flex flex-col shadow-2xl">
+                  <div className="flex justify-between items-center p-5 border-b border-white/5 bg-[#0f172a]">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                          <ShoppingBag className="text-blue-500" size={20} />
+                          افزودن محصول جدید به فروشگاه
+                      </h3>
+                      <button
+                          onClick={() => setIsNewProductModalOpen(false)}
+                          className="text-slate-400 hover:text-white transition-colors"
+                      >
+                          <X size={20} />
+                      </button>
+                  </div>
+
+                  <form onSubmit={handleQuickProductSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+                      <div>
+                          <label className="block text-xs text-slate-400 mb-1.5">نام محصول <span className="text-red-500">*</span></label>
+                          <input
+                              type="text"
+                              value={prodName}
+                              onChange={e => setProdName(e.target.value)}
+                              placeholder="مثال: اشتراک یک‌ماهه طلایی"
+                              required
+                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
+                          />
+                      </div>
+
+                      <div>
+                          <label className="block text-xs text-slate-400 mb-1.5">قیمت (به تومان) <span className="text-red-500">*</span></label>
+                          <input
+                              type="number"
+                              value={prodPrice}
+                              onChange={e => setProdPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                              placeholder="مثال: ۵۰۰۰۰"
+                              required
+                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors text-right"
+                              dir="ltr"
+                          />
+                      </div>
+
+                      <div>
+                          <label className="block text-xs text-slate-400 mb-1.5">توضیحات محصول</label>
+                          <textarea
+                              value={prodDesc}
+                              onChange={e => setProdDesc(e.target.value)}
+                              placeholder="توضیحات مربوط به محصول..."
+                              rows={3}
+                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl p-4 text-sm outline-none focus:border-blue-500 transition-colors"
+                          />
+                      </div>
+
+                      <div>
+                          <label className="block text-xs text-slate-400 mb-1.5">دسته‌بندی (اختیاری)</label>
+                          <input
+                              type="text"
+                              value={prodCategory}
+                              onChange={e => setProdCategory(e.target.value)}
+                              placeholder="مثال: دیجیتال، فیزیکی، سرویس"
+                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
+                          />
+                      </div>
+
+                      <div>
+                          <label className="block text-xs text-slate-400 mb-1.5">تصویر محصول (آپلود مستقیم یا لینک)</label>
+                          <div className="space-y-2">
+                              <div className="flex gap-2">
+                                  <input
+                                      type="file"
+                                      accept="image/*"
+                                      ref={prodFileInputRef}
+                                      onChange={handleProdImageUpload}
+                                      className="hidden"
+                                  />
+                                  <button
+                                      type="button"
+                                      onClick={() => prodFileInputRef.current?.click()}
+                                      disabled={isProdUploading}
+                                      className="flex-1 py-2 px-3 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 border border-blue-500/20 transition-all text-xs font-medium flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                  >
+                                      {isProdUploading ? <span>⏳ در حال آپلود...</span> : <span>📤 آپلود عکس از گالری</span>}
+                                  </button>
+                              </div>
+                              <input
+                                  type="text"
+                                  value={prodImage}
+                                  onChange={e => setProdImage(e.target.value)}
+                                  placeholder="یا لینک مستقیم عکس: https://..."
+                                  className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 transition-colors text-right"
+                                  dir="ltr"
+                              />
+                          </div>
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                          <button
+                              type="button"
+                              onClick={() => setIsNewProductModalOpen(false)}
+                              className="px-4 py-2 rounded-xl text-slate-300 hover:text-white text-sm font-medium transition-colors"
+                          >
+                              انصراف
+                          </button>
+                          <button
+                              type="submit"
+                              className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-medium transition-all shadow-lg shadow-blue-600/20 flex items-center gap-1.5"
+                          >
+                              <Check size={16} />
+                              ذخیره و انتخاب برای دکمه
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
       {/* --- MENU SIDEBAR --- */}
       {showMenuSidebar && (
          <div className="absolute inset-y-0 right-0 w-64 bg-slate-900/95 backdrop-blur-xl border-l border-white/10 z-50 p-4 shadow-2xl animate-fade-in overflow-y-auto">
@@ -970,11 +1193,12 @@ export const KeyboardBuilder: React.FC = () => {
                          
                          {btn.type === 'link' && <LinkIcon size={12} className="opacity-50" />}
                          {btn.type === 'submenu' && <Layers size={12} className="opacity-50 text-orange-400" />}
+                         {btn.type === 'product' && <ShoppingBag size={12} className="opacity-50 text-blue-400" />}
                          {btn.type === 'form' && <FileText size={12} className="opacity-50" />}
                          {btn.type === 'command' && <Command size={12} className="opacity-50" />}
                          {btn.type === 'inquiry' && <PhoneCall size={12} className="opacity-50 text-green-400" />}
                          
-                         {btn.text}
+                         {getButtonDisplayText(btn)}
                       </button>
                     ))}
                   </div>
@@ -1030,23 +1254,59 @@ export const KeyboardBuilder: React.FC = () => {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-1 md:col-span-2">
                    <label className="text-xs dark:text-white/50 text-slate-500 mb-1 block">عنوان دکمه</label>
-                   <input 
-                      type="text" 
-                      value={getSelectedBtnObj()!.text}
-                      onChange={(e) => updateCurrentButton({ text: e.target.value })}
-                      className="w-full bg-transparent border-b border-white/20 focus:border-blue-500 px-2 py-1 outline-none dark:text-white text-slate-800"
-                   />
+                   {getSelectedBtnObj()!.type === 'product' ? (
+                      <div>
+                         <input 
+                            type="text" 
+                            disabled
+                            value={getButtonDisplayText(getSelectedBtnObj()!)}
+                            className="w-full dark:bg-white/5 bg-slate-200 border dark:border-white/10 border-slate-300 px-3 py-2 rounded-lg text-sm dark:text-slate-300 text-slate-600 font-medium cursor-not-allowed"
+                         />
+                         <p className="text-[11px] text-blue-400/90 mt-1 flex items-center gap-1">
+                            <span>💡</span>
+                            <span>این متن خودکار و همیشه براساس قیمت واقعی محصول بهروزه — نیازی به ویرایش نداره.</span>
+                         </p>
+                      </div>
+                   ) : (
+                      <input 
+                         type="text" 
+                         value={getSelectedBtnObj()!.text}
+                         onChange={(e) => updateCurrentButton({ text: e.target.value })}
+                         className="w-full bg-transparent border-b border-white/20 focus:border-blue-500 px-2 py-1 outline-none dark:text-white text-slate-800"
+                      />
+                   )}
                 </div>
 
                 <div>
                    <label className="text-xs dark:text-white/50 text-slate-500 mb-1 block">نوع عملکرد</label>
                    <select 
                       value={getSelectedBtnObj()!.type}
-                      onChange={(e) => updateCurrentButton({ type: e.target.value as any })}
+                      onChange={(e) => {
+                        const newType = e.target.value as any;
+                        if (newType === 'product') {
+                          const products = getProducts();
+                          const firstProd = products[0];
+                          if (firstProd) {
+                            updateCurrentButton({
+                              type: 'product',
+                              productId: firstProd.id,
+                              text: `🛒 ${firstProd.name} — ${firstProd.price.toLocaleString('fa-IR')} تومان`
+                            });
+                          } else {
+                            updateCurrentButton({
+                              type: 'product',
+                              text: '🛒 انتخاب محصول...'
+                            });
+                          }
+                        } else {
+                          updateCurrentButton({ type: newType });
+                        }
+                      }}
                       className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"
                    >
                       <option value="callback">نمایش پیام ساده</option>
                       <option value="submenu">زیر منو (دکمه‌های تو در تو)</option>
+                      <option value="product">🛒 محصول فروشگاهی</option>
                       <option value="link">لینک وب‌سایت (Url)</option>
                       <option value="form">فرم دریافت اطلاعات</option>
                       <option value="inquiry">📞 استعلام و خرید (ارسال کاتالوگ)</option>
@@ -1098,6 +1358,80 @@ export const KeyboardBuilder: React.FC = () => {
                                📝 طراحی سوالات فرم
                            </button>
                            <p className="text-[10px] text-slate-500 mt-2 text-center">شناسه فرم: {getSelectedBtnObj()!.value}</p>
+                       </div>
+                   ) : getSelectedBtnObj()!.type === 'product' ? (
+                       <div className="mt-2 space-y-3 col-span-1 md:col-span-2 bg-white/5 p-4 rounded-xl border border-white/10">
+                           <div className="flex items-center justify-between">
+                               <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                                   <ShoppingBag size={15} className="text-blue-400" />
+                                   انتخاب محصول مرتبط با این دکمه
+                               </label>
+                               <button
+                                   type="button"
+                                   onClick={() => setIsNewProductModalOpen(true)}
+                                   className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all font-medium"
+                               >
+                                   <Plus size={14} />
+                                   افزودن محصول جدید
+                               </button>
+                           </div>
+
+                           <div className="max-h-56 overflow-y-auto space-y-2 custom-scrollbar pr-1 pt-1">
+                               {getProducts().length === 0 ? (
+                                   <div className="bg-black/20 border border-dashed border-white/10 rounded-xl p-4 text-center space-y-2">
+                                       <p className="text-xs text-slate-400">هیچ محصولی هنوز ثبت نشده است.</p>
+                                       <button
+                                           type="button"
+                                           onClick={() => setIsNewProductModalOpen(true)}
+                                           className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500/20 transition-colors"
+                                       >
+                                           + ساخت اولین محصول
+                                       </button>
+                                   </div>
+                               ) : (
+                                   getProducts().map((prod) => {
+                                       const isSelected = getSelectedBtnObj()!.productId === prod.id;
+                                       return (
+                                           <div
+                                               key={prod.id}
+                                               onClick={() => {
+                                                   updateCurrentButton({
+                                                       productId: prod.id,
+                                                       text: `🛒 ${prod.name} — ${prod.price.toLocaleString('fa-IR')} تومان`
+                                                   });
+                                               }}
+                                               className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                                                   isSelected
+                                                       ? 'bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/10'
+                                                       : 'bg-black/20 border-white/5 hover:bg-white/10 text-slate-300'
+                                               }`}
+                                           >
+                                               <div className="flex items-center gap-3">
+                                                   <div className="w-10 h-10 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                                                       {prod.imageUrl && prod.imageUrl.trim() !== '' && (prod.imageUrl.startsWith('http') || prod.imageUrl.startsWith('blob:') || prod.imageUrl.startsWith('data:')) ? (
+                                                           <img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-cover" />
+                                                       ) : (
+                                                           <ShoppingBag size={18} className="text-blue-400" />
+                                                       )}
+                                                   </div>
+                                                   <div>
+                                                       <h5 className="text-xs font-bold text-white line-clamp-1">{prod.name}</h5>
+                                                       <p className="text-[10px] text-blue-400 font-medium mt-0.5">
+                                                           {prod.price.toLocaleString('fa-IR')} تومان
+                                                           {prod.category && <span className="text-slate-400 mr-2">({prod.category})</span>}
+                                                       </p>
+                                                   </div>
+                                               </div>
+                                               {isSelected && (
+                                                   <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0">
+                                                       <Check size={12} />
+                                                   </div>
+                                               )}
+                                           </div>
+                                       );
+                                   })
+                               )}
+                           </div>
                        </div>
                    ) : getSelectedBtnObj()!.type === 'inquiry' ? (
                        <div className="mt-2 space-y-3 bg-white/5 p-3 rounded-xl border border-white/5 col-span-2 md:col-span-2">
@@ -1221,7 +1555,7 @@ export const KeyboardBuilder: React.FC = () => {
                             }
                           `}
                         >
-                          {btn.text}
+                          {getButtonDisplayText(btn)}
                         </button>
                       ))}
                     </div>
