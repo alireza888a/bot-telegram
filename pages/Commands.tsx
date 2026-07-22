@@ -3,6 +3,7 @@ import { GlassCard } from '../components/GlassCard';
 import { Command, Plus, Trash2, Save, Terminal, Play, CloudUpload, Info, Menu, Type, CheckCircle } from 'lucide-react';
 import { CommandConfig, MenuPage } from '../types';
 import { telegramService } from '../services/telegramService';
+import { syncNow } from '../services/cloudSync';
 
 export const Commands: React.FC = () => {
     const token = localStorage.getItem('bot_token') || '';
@@ -21,6 +22,7 @@ export const Commands: React.FC = () => {
 
     useEffect(() => {
         localStorage.setItem('bot_commands', JSON.stringify(commands));
+        syncNow();
     }, [commands]);
 
     const addCommand = () => {

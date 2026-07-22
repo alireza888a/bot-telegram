@@ -4,6 +4,7 @@ import { Users, Send, Plus, Trash2, Calendar as CalIcon, Clock, Image as ImageIc
 import { QueueItem, InlineRow, SavedChannel, SentMessageLog, MediaFile } from '../types';
 import { telegramService } from '../services/telegramService';
 import { generateBroadcastMessage } from '../services/geminiService';
+import { syncNow } from '../services/cloudSync';
 
 // --- UTILITIES (Accurate Jalali/Gregorian Conversion) ---
 const jalaaliMonthLength = (y: number, m: number) => {
@@ -249,9 +250,9 @@ export const Channels: React.FC<ChannelsProps> = ({ onNavigate }) => {
 
     // Persistence & Drafts
     useEffect(() => { localStorage.setItem('channels_active_tab', activeTab); }, [activeTab]);
-    useEffect(() => { localStorage.setItem('saved_channels', JSON.stringify(channels)); }, [channels]);
-    useEffect(() => { localStorage.setItem('channel_queue', JSON.stringify(queue)); }, [queue]);
-    useEffect(() => { localStorage.setItem('force_join_enabled', String(forceJoinEnabled)); }, [forceJoinEnabled]);
+    useEffect(() => { localStorage.setItem('saved_channels', JSON.stringify(channels)); syncNow(); }, [channels]);
+    useEffect(() => { localStorage.setItem('channel_queue', JSON.stringify(queue)); syncNow(); }, [queue]);
+    useEffect(() => { localStorage.setItem('force_join_enabled', String(forceJoinEnabled)); syncNow(); }, [forceJoinEnabled]);
 
     // --- AUTO-SAVE DRAFT (RESTORE ON MOUNT) ---
     useEffect(() => {

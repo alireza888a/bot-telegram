@@ -6,6 +6,7 @@ import {
     ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard
 } from 'lucide-react';
 import { telegramService } from '../services/telegramService';
+import { syncNow } from '../services/cloudSync';
 
 export const Settings: React.FC = () => {
     const [token, setToken] = useState(localStorage.getItem('bot_token') || '');
@@ -36,14 +37,17 @@ export const Settings: React.FC = () => {
     // --- AUTO SAVE EFFECT & STATUS RESTORE ---
     useEffect(() => {
         localStorage.setItem('bot_db_channel', dbChannel);
+        syncNow();
     }, [dbChannel]);
 
     useEffect(() => {
         localStorage.setItem('payment_card_number', cardNumber);
+        syncNow();
     }, [cardNumber]);
 
     useEffect(() => {
         localStorage.setItem('payment_card_owner', cardOwner);
+        syncNow();
     }, [cardOwner]);
 
     // Restore visual status on mount if channel exists

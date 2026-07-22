@@ -5,6 +5,7 @@ import { Plus, Trash2, Link as LinkIcon, Edit3, Eye, Sparkles, LayoutGrid, Music
 import { InlineRow, InlineButton, ButtonActionType, MediaAttachment, MenuPage, FormConfig, FormQuestion, InquiryConfig } from '../types';
 import { suggestButtonLabels } from '../services/geminiService';
 import { telegramService } from '../services/telegramService';
+import { syncNow } from '../services/cloudSync';
 
 export const KeyboardBuilder: React.FC = () => {
   // --- STATE MANAGEMENT ---
@@ -62,10 +63,12 @@ export const KeyboardBuilder: React.FC = () => {
   // 2. Auto-Save Effects
   useEffect(() => {
     localStorage.setItem('kb_menus', JSON.stringify(menus));
+    syncNow();
   }, [menus]);
 
   useEffect(() => {
     localStorage.setItem('kb_forms', JSON.stringify(forms));
+    syncNow();
   }, [forms]);
 
   const currentMenu = menus[currentMenuId] || menus['root']; // Fallback safety

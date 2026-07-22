@@ -96,3 +96,21 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
     return false;
   }
 };
+
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+export const syncNow = () => {
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    try {
+      const licenseCacheStr = localStorage.getItem('license_cache') || '{}';
+      const licenseCache = JSON.parse(licenseCacheStr);
+      const code = licenseCache.code;
+      if (code) {
+        saveToCloud(code);
+      }
+    } catch (e) {
+      // silent fail
+    }
+  }, 400);
+};

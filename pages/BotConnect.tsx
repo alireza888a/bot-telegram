@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Bot, Save, Globe, Lock, CheckCircle, XCircle, RefreshCw, Trash2, ShieldCheck, Activity, Terminal, MessageSquare } from 'lucide-react';
 import { telegramService, TelegramUser, WebhookInfo } from '../services/telegramService';
+import { syncNow } from '../services/cloudSync';
 
 interface LogMessage {
     id: number;
@@ -73,18 +74,35 @@ export const BotConnect: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setBotInfo(null);
+    setSuccessMsg(null);
     
     const data = await telegramService.getMe(apiToken);
     
     if (data.ok && data.result) {
       setBotInfo(data.result);
       localStorage.setItem('bot_token', apiToken);
+      syncNow();
+
+      let licenseCode = '';
+      try {
+        const licenseCache = JSON.parse(localStorage.getItem('license_cache') || '{}');
+        licenseCode = licenseCache.code || '';
+      } catch (e) {}
+
+      if (licenseCode) {
+        const centralWebhookUrl = `https://corepanel-api.tajikr450.workers.dev/api/bot/webhook/${licenseCode}`;
+        const whRes = await telegramService.setWebhook(apiToken, centralWebhookUrl);
+        if (whRes.ok) {
+          localStorage.setItem('bot_webhook_url', centralWebhookUrl);
+          setWebhookUrl(centralWebhookUrl);
+          setSuccessMsg('✅ ربات شما فعال شد و مستقیم به سرور متصله — هیچ کار دیگری لازم نیست.');
+        }
+      }
       
       const whData = await telegramService.getWebhookInfo(apiToken);
       if (whData.ok && whData.result) {
         setWebhookInfo(whData.result);
         if (whData.result.url) setWebhookUrl(whData.result.url); 
-        // Sync webhook url to local storage for BotEngine to know if it should poll
         localStorage.setItem('bot_webhook_url', whData.result.url || '');
       }
     } else {
@@ -179,6 +197,13 @@ export const BotConnect: React.FC = () => {
               </div>
             </div>
 
+            {successMsg && (
+              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm flex items-center gap-2 animate-slide-up">
+                <CheckCircle size={16} />
+                {successMsg}
+              </div>
+            )}
+
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm flex items-center gap-2 animate-slide-up">
                 <XCircle size={16} />
@@ -201,6 +226,12 @@ export const BotConnect: React.FC = () => {
           </form>
         ) : (
           <div className="space-y-8 animate-fade-in">
+             {successMsg && (
+                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm flex items-center gap-2 animate-slide-up">
+                  <CheckCircle size={16} />
+                  {successMsg}
+                </div>
+             )}
              <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b dark:border-white/10 border-slate-200">
                 <div className="flex items-center gap-5">
                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 p-[2px] shadow-xl">

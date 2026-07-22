@@ -119,6 +119,12 @@ export const CloudPublish: React.FC = () => {
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-20 relative">
             
+            {/* DEPRECATION BANNER */}
+            <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 p-4 rounded-2xl flex items-center gap-3 text-sm font-medium">
+                <AlertTriangle size={20} className="shrink-0 text-amber-400" />
+                <span>این روش قدیمی شد؛ حالا با وارد کردن توکن ربات در صفحه‌ی Bot Connect، اتصال به‌صورت کاملاً خودکار انجام می‌شود و نیازی به این صفحه نیست.</span>
+            </div>
+            
             {/* ACTIVATION MODAL */}
             {showCloudModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">

@@ -3,6 +3,7 @@ import { GlassCard } from '../components/GlassCard';
 import { Plus, Trash2, Edit, ShoppingBag, CheckCircle, X, DollarSign, Image as ImageIcon, ToggleLeft, ToggleRight, Check } from 'lucide-react';
 import { Product } from '../types';
 import { telegramService } from '../services/telegramService';
+import { syncNow } from '../services/cloudSync';
 
 export const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(() => {
@@ -59,6 +60,7 @@ export const Products: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('bot_products', JSON.stringify(products));
+    syncNow();
   }, [products]);
 
   const openAddModal = () => {
