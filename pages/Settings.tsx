@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
     Save, Database, Download, Upload, RefreshCcw, Server, 
-    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard
+    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard, UserCog
 } from 'lucide-react';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
@@ -16,6 +16,9 @@ export const Settings: React.FC = () => {
     // Payment Card Settings States
     const [cardNumber, setCardNumber] = useState(localStorage.getItem('payment_card_number') || '');
     const [cardOwner, setCardOwner] = useState(localStorage.getItem('payment_card_owner') || '');
+
+    // Admin Chat ID State
+    const [adminChatId, setAdminChatId] = useState(localStorage.getItem('admin_chat_id') || '');
 
     const [isCheckingDb, setIsCheckingDb] = useState(false);
     const [dbStatus, setDbStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -49,6 +52,11 @@ export const Settings: React.FC = () => {
         localStorage.setItem('payment_card_owner', cardOwner);
         syncNow();
     }, [cardOwner]);
+
+    useEffect(() => {
+        localStorage.setItem('admin_chat_id', adminChatId);
+        syncNow();
+    }, [adminChatId]);
 
     // Restore visual status on mount if channel exists
     useEffect(() => {
@@ -151,7 +159,10 @@ export const Settings: React.FC = () => {
                 db_channel: localStorage.getItem('bot_db_channel'),
                 webhook_url: localStorage.getItem('bot_webhook_url'),
                 theme: localStorage.getItem('theme'),
-                force_join: localStorage.getItem('force_join_enabled')
+                force_join: localStorage.getItem('force_join_enabled'),
+                payment_card_number: localStorage.getItem('payment_card_number'),
+                payment_card_owner: localStorage.getItem('payment_card_owner'),
+                admin_chat_id: localStorage.getItem('admin_chat_id')
             },
             data: {
                 menus: JSON.parse(localStorage.getItem('kb_menus') || '{}'),
@@ -197,6 +208,9 @@ export const Settings: React.FC = () => {
                 if (json.config.db_channel) localStorage.setItem('bot_db_channel', json.config.db_channel);
                 if (json.config.webhook_url) localStorage.setItem('bot_webhook_url', json.config.webhook_url);
                 if (json.config.force_join) localStorage.setItem('force_join_enabled', json.config.force_join);
+                if (json.config.payment_card_number) localStorage.setItem('payment_card_number', json.config.payment_card_number);
+                if (json.config.payment_card_owner) localStorage.setItem('payment_card_owner', json.config.payment_card_owner);
+                if (json.config.admin_chat_id) localStorage.setItem('admin_chat_id', json.config.admin_chat_id);
 
                 // Restore Data
                 localStorage.setItem('kb_menus', JSON.stringify(json.data.menus || {}));
@@ -447,6 +461,30 @@ export const Settings: React.FC = () => {
                                 placeholder="مثال: علی جلالی"
                                 className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-yellow-500 transition-colors"
                             />
+                        </div>
+                    </div>
+                </GlassCard>
+
+                {/* 4. ADMIN CHAT ID SETTINGS */}
+                <GlassCard className="border-t-4 border-t-emerald-500">
+                    <div className="flex items-center gap-2 mb-4">
+                        <UserCog className="text-emerald-400"/>
+                        <h3 className="font-bold text-lg dark:text-white text-slate-800">اطلاع‌رسانی مستقیم سفارش‌ها به ادمین</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">آیدی عددی ادمین (اختیاری)</label>
+                            <input 
+                                value={adminChatId}
+                                onChange={(e) => setAdminChatId(e.target.value)}
+                                placeholder="مثال: 123456789"
+                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white dir-ltr text-left font-mono outline-none focus:border-emerald-500 transition-colors"
+                                dir="ltr"
+                            />
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                                اگه این رو پر کنی، هر سفارش جدید (با عکس فیش پرداخت) مستقیم به همین آیدی عددی توی تلگرام هم ارسال میشه — جدا از کانال دیتابیس، حتی اگه کانالی تنظیم نکرده باشی.
+                            </p>
                         </div>
                     </div>
                 </GlassCard>

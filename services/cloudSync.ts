@@ -15,7 +15,8 @@ export const saveToCloud = async (code: string): Promise<boolean> => {
         theme: localStorage.getItem('theme'),
         force_join: localStorage.getItem('force_join_enabled'),
         payment_card_number: localStorage.getItem('payment_card_number'),
-        payment_card_owner: localStorage.getItem('payment_card_owner')
+        payment_card_owner: localStorage.getItem('payment_card_owner'),
+        admin_chat_id: localStorage.getItem('admin_chat_id')
       },
       data: {
         menus: JSON.parse(localStorage.getItem('kb_menus') || '{}'),
@@ -72,6 +73,7 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
         if (json.config.force_join) localStorage.setItem('force_join_enabled', json.config.force_join);
         if (json.config.payment_card_number) localStorage.setItem('payment_card_number', json.config.payment_card_number);
         if (json.config.payment_card_owner) localStorage.setItem('payment_card_owner', json.config.payment_card_owner);
+        if (json.config.admin_chat_id) localStorage.setItem('admin_chat_id', json.config.admin_chat_id);
       }
 
       // Restore Data

@@ -3,6 +3,7 @@ import { GlassCard } from '../components/GlassCard';
 import { ShoppingCart, Check, X, Clock, User, DollarSign, Calendar, Info, AlertCircle, RefreshCw } from 'lucide-react';
 import { Order } from '../types';
 import { telegramService } from '../services/telegramService';
+import { loadFromCloud } from '../services/cloudSync';
 
 export const Orders: React.FC = () => {
   const token = localStorage.getItem('bot_token') || '';
@@ -16,6 +17,34 @@ export const Orders: React.FC = () => {
   });
 
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'rejected'>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const refreshOrders = async () => {
+    setIsRefreshing(true);
+    try {
+      const licenseCacheStr = localStorage.getItem('license_cache') || '{}';
+      let code = '';
+      try {
+        const parsed = JSON.parse(licenseCacheStr);
+        code = parsed.code || '';
+      } catch {
+        code = licenseCacheStr;
+      }
+      if (code) {
+        await loadFromCloud(code);
+      }
+      const freshOrders = JSON.parse(localStorage.getItem('bot_orders') || '[]');
+      setOrders(freshOrders);
+    } catch (e) {
+      console.warn('Error refreshing orders:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshOrders();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('bot_orders', JSON.stringify(orders));
@@ -101,14 +130,24 @@ export const Orders: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-10">
-      <div>
-        <h2 className="text-2xl font-bold dark:text-white text-slate-800 flex items-center gap-2">
-          <ShoppingCart className="text-[#3b82f6]" />
-          مدیریت سفارش‌ها و فیش‌های دریافتی
-        </h2>
-        <p className="text-xs dark:text-white/50 text-slate-500 mt-1">
-          سفارش‌های ثبت شده توسط مشتریان ربات را بررسی و وضعیت پرداخت آن‌ها را تعیین کنید.
-        </p>
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div>
+          <h2 className="text-2xl font-bold dark:text-white text-slate-800 flex items-center gap-2">
+            <ShoppingCart className="text-[#3b82f6]" />
+            مدیریت سفارش‌ها و فیش‌های دریافتی
+          </h2>
+          <p className="text-xs dark:text-white/50 text-slate-500 mt-1">
+            سفارش‌های ثبت شده توسط مشتریان ربات را بررسی و وضعیت پرداخت آن‌ها را تعیین کنید.
+          </p>
+        </div>
+        <button
+          onClick={refreshOrders}
+          disabled={isRefreshing}
+          className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 border border-blue-500/20 px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+        >
+          <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+          <span>بروزرسانی سفارش‌ها</span>
+        </button>
       </div>
 
       {/* Filter Tabs */}
