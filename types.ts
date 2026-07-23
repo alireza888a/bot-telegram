@@ -174,5 +174,6 @@ export interface Order {
   total: number;
   status: 'pending' | 'confirmed' | 'rejected';
   createdAt: number;
+  fulfillment?: { q?: string; a?: string; question?: string; answer?: string }[] | Record<string, string>;
 }
 

@@ -7,7 +7,6 @@ import { KeyboardBuilder } from './pages/KeyboardBuilder';
 import { Channels } from './pages/Channels';
 import { Broadcast } from './pages/Broadcast';
 import { Commands } from './pages/Commands';
-import { CloudPublish } from './pages/CloudPublish'; // Import new page
 import { Support } from './pages/Support';
 import { Settings } from './pages/Settings';
 import { Users } from './pages/Users';
@@ -76,8 +75,6 @@ const App: React.FC = () => {
         return <Products />;
       case 'orders':
         return <Orders />;
-      case 'cloud':
-        return <CloudPublish />; // New Route
       case 'support':
         return <Support />;
       case 'settings':

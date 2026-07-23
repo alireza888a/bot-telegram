@@ -554,6 +554,18 @@ export const KeyboardBuilder: React.FC = () => {
     });
   };
 
+  const addSupportButton = () => {
+    const supportBtn: InlineButton = {
+      id: Date.now().toString(),
+      text: '💬 پشتیبانی',
+      type: 'callback',
+      value: 'support'
+    };
+    updateMenu(currentMenuId, {
+      rows: [...currentMenu.rows, { id: Date.now().toString(), buttons: [supportBtn] }]
+    });
+  };
+
   const removeRow = (rowId: string) => {
     updateMenu(currentMenuId, { 
       rows: currentMenu.rows.filter(r => r.id !== rowId) 
@@ -1134,12 +1146,12 @@ export const KeyboardBuilder: React.FC = () => {
         
         {/* ... (Keyboard Grid Builder & Button Config - Unchanged) ... */}
         <GlassCard title="دکمه‌های این منو">
-           <div className="flex gap-2 mb-6">
+           <div className="flex flex-wrap gap-2 mb-6">
               {[1, 2, 3, 4].map(num => (
                 <button
                   key={num}
                   onClick={() => addRow(num)}
-                  className="flex-1 py-3 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-600/30 text-blue-500 dark:text-blue-300 rounded-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95"
+                  className="flex-1 py-3 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-600/30 text-blue-500 dark:text-blue-300 rounded-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 min-w-[70px]"
                 >
                   <div className="flex gap-0.5">
                     {Array(num).fill(0).map((_, i) => (
@@ -1149,6 +1161,16 @@ export const KeyboardBuilder: React.FC = () => {
                   <span className="text-xs font-bold">{num} تایی</span>
                 </button>
               ))}
+              <button
+                onClick={addSupportButton}
+                className="py-3 px-3 bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-600/30 text-emerald-500 dark:text-emerald-300 rounded-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 text-xs font-bold"
+                title="افزودن مستقیم دکمه پشتیبانی"
+              >
+                <div className="flex items-center gap-1">
+                  <span>💬</span>
+                </div>
+                <span>پشتیبانی</span>
+              </button>
            </div>
            
            <div className="space-y-3">

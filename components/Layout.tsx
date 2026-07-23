@@ -23,7 +23,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
     { id: 'users', label: 'کاربران ربات', icon: <UserCog size={20} /> },
     { id: 'products', label: 'محصولات', icon: <ShoppingBag size={20} /> },
     { id: 'orders', label: 'سفارش‌ها', icon: <ShoppingCart size={20} /> },
-    { id: 'cloud', label: 'انتشار ابری', icon: <Cloud size={20} /> }, // NEW ITEM
     { id: 'support', label: 'پشتیبانی', icon: <MessageCircle size={20} /> },
     { id: 'settings', label: 'تنظیمات', icon: <Settings size={20} /> },
   ];

@@ -20,6 +20,9 @@ export const Settings: React.FC = () => {
     // Admin Chat ID State
     const [adminChatId, setAdminChatId] = useState(localStorage.getItem('admin_chat_id') || '');
 
+    // Support Chat ID State
+    const [supportChatId, setSupportChatId] = useState(localStorage.getItem('support_chat_id') || '');
+
     // Post Confirm Menu State
     const [postConfirmMenuId, setPostConfirmMenuId] = useState(localStorage.getItem('post_confirm_menu_id') || '');
 
@@ -60,6 +63,11 @@ export const Settings: React.FC = () => {
         localStorage.setItem('admin_chat_id', adminChatId);
         syncNow();
     }, [adminChatId]);
+
+    useEffect(() => {
+        localStorage.setItem('support_chat_id', supportChatId);
+        syncNow();
+    }, [supportChatId]);
 
     useEffect(() => {
         localStorage.setItem('post_confirm_menu_id', postConfirmMenuId);
@@ -179,6 +187,7 @@ export const Settings: React.FC = () => {
                 payment_card_number: localStorage.getItem('payment_card_number'),
                 payment_card_owner: localStorage.getItem('payment_card_owner'),
                 admin_chat_id: localStorage.getItem('admin_chat_id'),
+                support_chat_id: localStorage.getItem('support_chat_id'),
                 post_confirm_menu_id: localStorage.getItem('post_confirm_menu_id')
             },
             data: {
@@ -228,6 +237,7 @@ export const Settings: React.FC = () => {
                 if (json.config.payment_card_number) localStorage.setItem('payment_card_number', json.config.payment_card_number);
                 if (json.config.payment_card_owner) localStorage.setItem('payment_card_owner', json.config.payment_card_owner);
                 if (json.config.admin_chat_id) localStorage.setItem('admin_chat_id', json.config.admin_chat_id);
+                if (json.config.support_chat_id) localStorage.setItem('support_chat_id', json.config.support_chat_id);
                 if (json.config.post_confirm_menu_id) localStorage.setItem('post_confirm_menu_id', json.config.post_confirm_menu_id);
 
                 // Restore Data
@@ -483,11 +493,11 @@ export const Settings: React.FC = () => {
                     </div>
                 </GlassCard>
 
-                {/* 4. ADMIN CHAT ID SETTINGS */}
+                {/* 4. ADMIN & SUPPORT CHAT ID SETTINGS */}
                 <GlassCard className="border-t-4 border-t-emerald-500">
                     <div className="flex items-center gap-2 mb-4">
                         <UserCog className="text-emerald-400"/>
-                        <h3 className="font-bold text-lg dark:text-white text-slate-800">اطلاع‌رسانی مستقیم سفارش‌ها به ادمین</h3>
+                        <h3 className="font-bold text-lg dark:text-white text-slate-800">اعلان سفارش‌ها و پشتیبانی ادمین</h3>
                     </div>
 
                     <div className="space-y-4">
@@ -502,6 +512,20 @@ export const Settings: React.FC = () => {
                             />
                             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                                 اگه این رو پر کنی، هر سفارش جدید (با عکس فیش پرداخت) مستقیم به همین آیدی عددی توی تلگرام هم ارسال میشه — جدا از کانال دیتابیس، حتی اگه کانالی تنظیم نکرده باشی.
+                            </p>
+                        </div>
+
+                        <div className="pt-4 border-t border-white/5">
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">آیدی عددی پشتیبانی (اختیاری)</label>
+                            <input 
+                                value={supportChatId}
+                                onChange={(e) => setSupportChatId(e.target.value)}
+                                placeholder="مثال: 987654321"
+                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white dir-ltr text-left font-mono outline-none focus:border-emerald-500 transition-colors"
+                                dir="ltr"
+                            />
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                                وقتی خریدارهای ربات دستور /support رو بزنن یا دکمهی پشتیبانی رو لمس کنن، پیامشون مستقیم به همین آیدی میرسه — جدا از اعلان سفارشها. اگه خالی بمونه، همون آیدی عددی ادمین استفاده میشه.
                             </p>
                         </div>
                     </div>

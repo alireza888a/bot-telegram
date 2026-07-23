@@ -245,6 +245,44 @@ export const Orders: React.FC = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Fulfillment / Extra Info */}
+                {order.fulfillment && (
+                  (() => {
+                    let items: { q: string; a: string }[] = [];
+                    if (Array.isArray(order.fulfillment)) {
+                      items = order.fulfillment
+                        .map(item => ({
+                          q: item.q || item.question || '',
+                          a: item.a || item.answer || ''
+                        }))
+                        .filter(item => item.q || item.a);
+                    } else if (typeof order.fulfillment === 'object') {
+                      items = Object.entries(order.fulfillment).map(([key, val]) => ({
+                        q: key,
+                        a: String(val)
+                      }));
+                    }
+
+                    if (items.length === 0) return null;
+
+                    return (
+                      <div className="mt-4 bg-blue-500/5 border border-blue-500/10 rounded-xl p-3 space-y-2 text-xs">
+                        <h4 className="font-bold text-blue-400 flex items-center gap-1.5">
+                          <span>📋 اطلاعات تکمیلی</span>
+                        </h4>
+                        <div className="space-y-1.5">
+                          {items.map((item, idx) => (
+                            <div key={idx} className="flex flex-col sm:flex-row justify-between bg-black/10 dark:bg-black/20 p-2 rounded-lg gap-1">
+                              <span className="text-slate-400 font-medium">{item.q}:</span>
+                              <span className="dark:text-white text-slate-800 font-semibold">{item.a}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
               </div>
 
               {/* Order Actions */}
