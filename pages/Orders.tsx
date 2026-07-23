@@ -51,65 +51,63 @@ export const Orders: React.FC = () => {
   }, [orders]);
 
   const handleConfirmOrder = async (orderId: string) => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
-
-    if (!token) {
-      alert('خطا: توکن ربات تنظیم نشده است. ابتدا ربات را در تنظیمات متصل کنید تا پیام ارسال شود.');
-      return;
+    const licenseCacheStr = localStorage.getItem('license_cache') || '{}';
+    let code = '';
+    try {
+      code = JSON.parse(licenseCacheStr).code || '';
+    } catch {
+      code = licenseCacheStr;
     }
 
     try {
-      // 1. Update order status locally
-      const updatedOrders = orders.map(o =>
-        o.id === orderId ? { ...o, status: 'confirmed' as const } : o
-      );
-      setOrders(updatedOrders);
+      const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/order/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, orderId })
+      });
+      const result = await res.json();
 
-      // 2. Send Telegram notification
-      const messageText = "پرداخت شما تایید شد ✅ سفارشتون در حال آمادهسازیه.";
-      const res = await telegramService.sendMessage(token, order.userId, messageText);
-      if (res && res.ok) {
+      if (result.ok) {
         alert('سفارش با موفقیت تایید شد و پیام اطلاع‌رسانی به خریدار ارسال گردید.');
       } else {
-        console.warn('Telegram send message returned error:', res);
-        alert('سفارش به عنوان تاییدشده ذخیره شد، اما ارسال پیام تلگرام ناموفق بود (احتمالاً به دلیل ریپورت یا استارت نبودن ربات توسط کاربر).');
+        alert('خطا در تایید سفارش: ' + (result.reason || 'نامشخص'));
       }
     } catch (e) {
       console.error(e);
-      alert('خطایی در تایید سفارش رخ داد.');
+      alert('خطا در ارتباط با سرور هنگام تایید سفارش.');
     }
+
+    await refreshOrders();
   };
 
   const handleRejectOrder = async (orderId: string) => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
-
-    if (!token) {
-      alert('خطا: توکن ربات تنظیم نشده است. ابتدا ربات را در تنظیمات متصل کنید تا پیام ارسال شود.');
-      return;
+    const licenseCacheStr = localStorage.getItem('license_cache') || '{}';
+    let code = '';
+    try {
+      code = JSON.parse(licenseCacheStr).code || '';
+    } catch {
+      code = licenseCacheStr;
     }
 
     try {
-      // 1. Update order status locally
-      const updatedOrders = orders.map(o =>
-        o.id === orderId ? { ...o, status: 'rejected' as const } : o
-      );
-      setOrders(updatedOrders);
+      const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/order/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, orderId })
+      });
+      const result = await res.json();
 
-      // 2. Send Telegram notification
-      const messageText = "متاسفانه پرداخت شما تایید نشد. لطفاً با پشتیبانی تماس بگیرید.";
-      const res = await telegramService.sendMessage(token, order.userId, messageText);
-      if (res && res.ok) {
+      if (result.ok) {
         alert('سفارش رد شد و پیام اطلاع‌رسانی به خریدار ارسال گردید.');
       } else {
-        console.warn('Telegram send message returned error:', res);
-        alert('سفارش به عنوان ردشده ذخیره شد، اما ارسال پیام تلگرام ناموفق بود.');
+        alert('خطا در رد سفارش: ' + (result.reason || 'نامشخص'));
       }
     } catch (e) {
       console.error(e);
-      alert('خطایی در رد سفارش رخ داد.');
+      alert('خطا در ارتباط با سرور هنگام رد سفارش.');
     }
+
+    await refreshOrders();
   };
 
   const filteredOrders = orders.filter(o => {
