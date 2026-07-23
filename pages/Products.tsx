@@ -24,6 +24,24 @@ export const Products: React.FC = () => {
   const [imageUrl, setImageUrl] = useState('');
   const [active, setActive] = useState(true);
   const [category, setCategory] = useState('');
+  const [postConfirmMenuId, setPostConfirmMenuId] = useState('');
+  const [postOrderFormId, setPostOrderFormId] = useState('');
+
+  const getKbMenus = (): Record<string, { id?: string; title?: string; content?: string }> => {
+    try {
+      return JSON.parse(localStorage.getItem('kb_menus') || '{}');
+    } catch {
+      return {};
+    }
+  };
+
+  const getKbForms = (): Record<string, { id?: string; title?: string }> => {
+    try {
+      return JSON.parse(localStorage.getItem('kb_forms') || '{}');
+    } catch {
+      return {};
+    }
+  };
 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +89,8 @@ export const Products: React.FC = () => {
     setImageUrl('');
     setActive(true);
     setCategory('');
+    setPostConfirmMenuId('');
+    setPostOrderFormId('');
     setIsModalOpen(true);
   };
 
@@ -82,6 +102,8 @@ export const Products: React.FC = () => {
     setImageUrl(product.imageUrl || '');
     setActive(product.active);
     setCategory(product.category || '');
+    setPostConfirmMenuId(product.post_confirm_menu_id || '');
+    setPostOrderFormId(product.post_order_form_id || '');
     setIsModalOpen(true);
   };
 
@@ -101,7 +123,9 @@ export const Products: React.FC = () => {
         description,
         imageUrl: imageUrl || undefined,
         active,
-        category: category.trim() || 'عمومی'
+        category: category.trim() || 'عمومی',
+        post_confirm_menu_id: postConfirmMenuId || undefined,
+        post_order_form_id: postOrderFormId || undefined
       } : p));
     } else {
       // Create new
@@ -112,7 +136,9 @@ export const Products: React.FC = () => {
         description,
         imageUrl: imageUrl || undefined,
         active,
-        category: category.trim() || 'عمومی'
+        category: category.trim() || 'عمومی',
+        post_confirm_menu_id: postConfirmMenuId || undefined,
+        post_order_form_id: postOrderFormId || undefined
       };
       setProducts([...products, newProduct]);
     }
@@ -376,6 +402,41 @@ export const Products: React.FC = () => {
                   placeholder="مثال: اشتراک‌ها، فیزیکی، عمومی"
                   className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5">منوی بعد از تایید (اختیاری)</label>
+                <select
+                  value={postConfirmMenuId}
+                  onChange={e => setPostConfirmMenuId(e.target.value)}
+                  className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="">پیش‌فرض سراسری (تنظیمات)</option>
+                  {Object.entries(getKbMenus()).map(([id, menu]) => (
+                    <option key={id} value={id}>
+                      {menu.title || menu.content || id} ({id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5">فرم بعد از تایید (اختیاری)</label>
+                <select
+                  value={postOrderFormId}
+                  onChange={e => setPostOrderFormId(e.target.value)}
+                  className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="">پیش‌فرض سراسری (تنظیمات)</option>
+                  {Object.entries(getKbForms()).map(([id, form]) => (
+                    <option key={id} value={id}>
+                      {form.title || id} ({id})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                  اگر اینجا چیزی انتخاب نکنید، همان تنظیم پیش‌فرضی که در صفحه تنظیمات گذاشته‌اید استفاده می‌شود. برای هر محصول می‌توانید جدا مشخص کنید.
+                </p>
               </div>
 
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">

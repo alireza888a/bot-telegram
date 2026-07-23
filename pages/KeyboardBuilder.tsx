@@ -67,6 +67,8 @@ export const KeyboardBuilder: React.FC = () => {
   const [prodDesc, setProdDesc] = useState('');
   const [prodCategory, setProdCategory] = useState('');
   const [prodImage, setProdImage] = useState('');
+  const [prodPostConfirmMenuId, setProdPostConfirmMenuId] = useState('');
+  const [prodPostOrderFormId, setProdPostOrderFormId] = useState('');
   const [isProdUploading, setIsProdUploading] = useState(false);
   const prodFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,7 +131,9 @@ export const KeyboardBuilder: React.FC = () => {
       description: prodDesc,
       category: prodCategory.trim() || 'عمومی',
       imageUrl: prodImage || undefined,
-      active: true
+      active: true,
+      post_confirm_menu_id: prodPostConfirmMenuId || undefined,
+      post_order_form_id: prodPostOrderFormId || undefined
     };
 
     let existing: Product[] = [];
@@ -155,6 +159,8 @@ export const KeyboardBuilder: React.FC = () => {
     setProdDesc('');
     setProdCategory('');
     setProdImage('');
+    setProdPostConfirmMenuId('');
+    setProdPostOrderFormId('');
     setIsNewProductModalOpen(false);
   };
 
@@ -873,6 +879,41 @@ export const KeyboardBuilder: React.FC = () => {
                               placeholder="مثال: دیجیتال، فیزیکی، سرویس"
                               className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
                           />
+                      </div>
+
+                      <div>
+                          <label className="block text-xs text-slate-400 mb-1.5">منوی بعد از تایید (اختیاری)</label>
+                          <select
+                              value={prodPostConfirmMenuId}
+                              onChange={e => setProdPostConfirmMenuId(e.target.value)}
+                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
+                          >
+                              <option value="">پیش‌فرض سراسری (تنظیمات)</option>
+                              {Object.entries(menus).map(([id, menu]) => (
+                                  <option key={id} value={id}>
+                                      {menu.title || menu.content || id} ({id})
+                                  </option>
+                              ))}
+                          </select>
+                      </div>
+
+                      <div>
+                          <label className="block text-xs text-slate-400 mb-1.5">فرم بعد از تایید (اختیاری)</label>
+                          <select
+                              value={prodPostOrderFormId}
+                              onChange={e => setProdPostOrderFormId(e.target.value)}
+                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
+                          >
+                              <option value="">پیش‌فرض سراسری (تنظیمات)</option>
+                              {Object.entries(forms).map(([id, form]) => (
+                                  <option key={id} value={id}>
+                                      {form.title || id} ({id})
+                                  </option>
+                              ))}
+                          </select>
+                          <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                              اگر اینجا چیزی انتخاب نکنید، همان تنظیم پیش‌فرضی که در صفحه تنظیمات گذاشته‌اید استفاده می‌شود. برای هر محصول می‌توانید جدا مشخص کنید.
+                          </p>
                       </div>
 
                       <div>
