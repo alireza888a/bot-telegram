@@ -7,6 +7,46 @@ import { suggestButtonLabels } from '../services/geminiService';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
 
+const FormCheckboxSimulator: React.FC<{ options: string[]; onSubmit: (selected: string[]) => void }> = ({ options, onSubmit }) => {
+    const [selected, setSelected] = useState<string[]>([]);
+
+    const toggle = (opt: string) => {
+        setSelected(prev => prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt]);
+    };
+
+    return (
+        <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-2">
+                {options.map((opt, oIdx) => {
+                    const isChecked = selected.includes(opt);
+                    return (
+                        <div
+                            key={oIdx}
+                            onClick={() => toggle(opt)}
+                            className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+                                isChecked
+                                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-200'
+                                    : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'
+                            }`}
+                        >
+                            <span>{opt}</span>
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${isChecked ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/30'}`}>
+                                {isChecked && <Check size={12} />}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            <button
+                onClick={() => onSubmit(selected.length > 0 ? selected : ['هیچ گزینه‌ای انتخاب نشد'])}
+                className="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-600/20"
+            >
+                تایید و ارسال ({selected.length} گزینه انتخاب شده)
+            </button>
+        </div>
+    );
+};
+
 export const KeyboardBuilder: React.FC = () => {
   // --- STATE MANAGEMENT ---
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +130,12 @@ export const KeyboardBuilder: React.FC = () => {
         }
       }
       return btn.text || '🛒 محصول فروشگاهی';
+    }
+    if (btn.type === 'ticket' || (btn.type === 'callback' && btn.value === 'support')) {
+      return btn.text || '🎫 تیکت پشتیبانی';
+    }
+    if (btn.type === 'api') {
+      return btn.text || '🔗 فراخوانی API';
     }
     return btn.text;
   };
@@ -406,8 +452,16 @@ export const KeyboardBuilder: React.FC = () => {
                   // Simulate sent
               }, 800);
               break;
+          case 'api':
+              alert(`🔗 فراخوانی API به آدرس:\n${btn.apiUrl || 'آدرسی تنظیم نشده است'}\n(شبیه‌سازی ارسال درخواست POST)`);
+              break;
+          case 'ticket':
+              alert('🎫 جریان ثبت تیکت پشتیبانی (/support) شروع شد (شبیه‌سازی).');
+              break;
           default:
-              // Callback
+              if (btn.value === 'support') {
+                  alert('🎫 جریان ثبت تیکت پشتیبانی (/support) شروع شد (شبیه‌سازی).');
+              }
               break;
       }
   };
@@ -768,19 +822,94 @@ export const KeyboardBuilder: React.FC = () => {
                                           placeholder="متن سوال را اینجا بنویسید..."
                                       />
                                       
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                           <span className="text-[10px] text-slate-500">نوع پاسخ:</span>
                                           <select 
                                             value={q.type}
-                                            onChange={(e) => updateQuestion(editingFormId, q.id, { type: e.target.value as any })}
+                                            onChange={(e) => {
+                                              const newType = e.target.value as any;
+                                              updateQuestion(editingFormId, q.id, { 
+                                                  type: newType,
+                                                  options: (newType === 'select' || newType === 'checkbox') ? (q.options || []) : undefined
+                                              });
+                                            }}
                                             className="bg-black/20 text-xs text-white border border-white/10 rounded p-1 outline-none"
                                           >
                                               <option value="text">✏️ متن</option>
                                               <option value="number">🔢 عدد</option>
                                               <option value="photo">🖼 عکس</option>
                                               <option value="document">📎 فایل</option>
+                                              <option value="video">📹 ویدیو</option>
+                                              <option value="audio">🎙️ صدا</option>
+                                              <option value="location">📍 موقعیت مکانی</option>
+                                              <option value="date">📅 تاریخ</option>
+                                              <option value="select">☑️ انتخاب از لیست (تک‌گزینه‌ای)</option>
+                                              <option value="checkbox">✅ انتخاب چندگزینه‌ای (چک‌باکس)</option>
                                           </select>
                                       </div>
+
+                                      {(q.type === 'select' || q.type === 'checkbox') && (
+                                          <div className="mt-3 p-3 bg-black/20 border border-white/10 rounded-xl space-y-2">
+                                              <label className="text-xs text-slate-300 font-medium block">
+                                                  گزینه‌های قابل انتخاب ({q.type === 'select' ? 'تک‌گزینه‌ای' : 'چندگزینه‌ای'}):
+                                              </label>
+                                              <div className="space-y-1.5">
+                                                  {(q.options || []).map((opt, optIdx) => (
+                                                      <div key={optIdx} className="flex items-center gap-2 bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/5 text-xs text-white">
+                                                          <span className="flex-1 text-right">{opt}</span>
+                                                          <button
+                                                              type="button"
+                                                              onClick={() => {
+                                                                  const newOpts = (q.options || []).filter((_, i) => i !== optIdx);
+                                                                  updateQuestion(editingFormId, q.id, { options: newOpts });
+                                                              }}
+                                                              className="text-red-400 hover:text-red-300 p-0.5 rounded hover:bg-white/10 transition-colors"
+                                                              title="حذف گزینه"
+                                                          >
+                                                              <X size={14} />
+                                                          </button>
+                                                      </div>
+                                                  ))}
+                                                  {(q.options || []).length === 0 && (
+                                                      <p className="text-[11px] text-slate-500 italic">هنوز گزینه‌ای تعریف نشده است.</p>
+                                                  )}
+                                              </div>
+                                              <div className="flex gap-2 pt-1">
+                                                  <input
+                                                      type="text"
+                                                      id={`new-opt-${q.id}`}
+                                                      placeholder="عنوان گزینه جدید..."
+                                                      className="flex-1 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-500"
+                                                      onKeyDown={(e) => {
+                                                          if (e.key === 'Enter') {
+                                                              e.preventDefault();
+                                                              const input = e.currentTarget;
+                                                              const val = input.value.trim();
+                                                              if (val) {
+                                                                  const cur = q.options || [];
+                                                                  updateQuestion(editingFormId, q.id, { options: [...cur, val] });
+                                                                  input.value = '';
+                                                              }
+                                                          }
+                                                      }}
+                                                  />
+                                                  <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                          const input = document.getElementById(`new-opt-${q.id}`) as HTMLInputElement;
+                                                          if (input && input.value.trim()) {
+                                                              const cur = q.options || [];
+                                                              updateQuestion(editingFormId, q.id, { options: [...cur, input.value.trim()] });
+                                                              input.value = '';
+                                                          }
+                                                      }}
+                                                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0"
+                                                  >
+                                                      افزودن
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      )}
                                   </div>
 
                                   <button 
@@ -964,6 +1093,299 @@ export const KeyboardBuilder: React.FC = () => {
                           </button>
                       </div>
                   </form>
+              </div>
+          </div>
+      )}
+
+      {/* Preview / Simulation Modal */}
+      {previewModal && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+              <div className="bg-[#1e293b] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl">
+                  <div className="flex justify-between items-center p-4 border-b border-white/5 bg-[#0f172a]">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                          <Eye size={16} className="text-green-400" />
+                          {previewModal.type === 'form' ? 'پیش‌نمایش تعاملی فرم' : previewModal.type === 'link' ? 'پیش‌نمایش لینک' : 'پیش‌نمایش درخواست'}
+                      </h3>
+                      <button
+                          onClick={() => { setPreviewModal(null); setSimFormStep(0); setSimFormAnswers([]); }}
+                          className="text-slate-400 hover:text-white transition-colors"
+                      >
+                          <X size={18} />
+                      </button>
+                  </div>
+
+                  <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                      {previewModal.type === 'form' && (() => {
+                          const form = forms[previewModal.value];
+                          if (!form) {
+                              return <p className="text-xs text-red-400">فرمی با این شناسه یافت نشد ({previewModal.value}).</p>;
+                          }
+                          const qCount = form.questions.length;
+                          if (qCount === 0) {
+                              return <p className="text-xs text-slate-400">این فرم هیچ سوالی ندارد.</p>;
+                          }
+
+                          if (simFormStep >= qCount) {
+                              return (
+                                  <div className="space-y-4 text-center py-2">
+                                      <div className="w-12 h-12 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                                          ✓
+                                      </div>
+                                      <div>
+                                          <h4 className="text-sm font-bold text-white mb-1">تکمیل فرم با موفقیت!</h4>
+                                          <p className="text-xs text-slate-400">پاسخ‌ها برای ادمین ({form.adminId || 'تعریف نشده'}) فوروارد می‌شوند.</p>
+                                      </div>
+                                      <div className="bg-black/30 p-3 rounded-xl border border-white/10 text-right space-y-2 text-xs">
+                                          <p className="font-bold text-slate-300 border-b border-white/10 pb-1">خلاصه پاسخ‌های شما:</p>
+                                          {form.questions.map((q, idx) => (
+                                              <div key={q.id} className="text-slate-400">
+                                                  <span className="text-slate-300 font-medium">{q.text}: </span>
+                                                  <span className="text-blue-300">{simFormAnswers[idx] || 'پاسخ داده نشده'}</span>
+                                              </div>
+                                          ))}
+                                      </div>
+                                      <button
+                                          onClick={() => { setPreviewModal(null); setSimFormStep(0); setSimFormAnswers([]); }}
+                                          className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-600/20"
+                                      >
+                                          بستن پیش‌نمایش
+                                      </button>
+                                  </div>
+                              );
+                          }
+
+                          const currentQ = form.questions[simFormStep];
+
+                          return (
+                              <div className="space-y-4">
+                                  <div className="flex justify-between items-center text-xs text-slate-400 border-b border-white/5 pb-2">
+                                      <span>سوال {simFormStep + 1} از {qCount}</span>
+                                      <span className="text-blue-400 font-bold">{form.title}</span>
+                                  </div>
+
+                                  <div className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-3">
+                                      <p className="text-sm text-white font-medium">{currentQ.text}</p>
+
+                                      {currentQ.type === 'text' && (
+                                          <div className="space-y-2">
+                                              <input
+                                                  type="text"
+                                                  id="sim-input-text"
+                                                  placeholder="پاسخ خود را بنویسید..."
+                                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-blue-500"
+                                                  onKeyDown={(e) => {
+                                                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                          handleSimFormSubmit(e.currentTarget.value.trim());
+                                                          e.currentTarget.value = '';
+                                                      }
+                                                  }}
+                                              />
+                                              <button
+                                                  onClick={() => {
+                                                      const el = document.getElementById('sim-input-text') as HTMLInputElement;
+                                                      const val = el?.value.trim() || 'متن نمونه پاسخ';
+                                                      handleSimFormSubmit(val);
+                                                  }}
+                                                  className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all"
+                                              >
+                                                  ارسال پاسخ متنی (شبیه‌سازی)
+                                              </button>
+                                          </div>
+                                      )}
+
+                                      {currentQ.type === 'number' && (
+                                          <div className="space-y-2">
+                                              <input
+                                                  type="number"
+                                                  id="sim-input-num"
+                                                  placeholder="یک عدد وارد کنید..."
+                                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-blue-500 text-left dir-ltr"
+                                                  dir="ltr"
+                                                  onKeyDown={(e) => {
+                                                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                          handleSimFormSubmit(e.currentTarget.value.trim());
+                                                          e.currentTarget.value = '';
+                                                      }
+                                                  }}
+                                              />
+                                              <button
+                                                  onClick={() => {
+                                                      const el = document.getElementById('sim-input-num') as HTMLInputElement;
+                                                      const val = el?.value.trim() || '12345';
+                                                      handleSimFormSubmit(val);
+                                                  }}
+                                                  className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all"
+                                              >
+                                                  ارسال عدد (شبیه‌سازی)
+                                              </button>
+                                          </div>
+                                      )}
+
+                                      {currentQ.type === 'photo' && (
+                                          <button
+                                              onClick={() => handleSimFormSubmit('🖼 [عکس ارسال شد]')}
+                                              className="w-full py-3 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                          >
+                                              <ImageIcon size={16} />
+                                              ارسال عکس (شبیه‌سازی)
+                                          </button>
+                                      )}
+
+                                      {currentQ.type === 'document' && (
+                                          <button
+                                              onClick={() => handleSimFormSubmit('📎 [فایل ارسال شد]')}
+                                              className="w-full py-3 bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                          >
+                                              <FileText size={16} />
+                                              ارسال فایل سند (شبیه‌سازی)
+                                          </button>
+                                      )}
+
+                                      {currentQ.type === 'video' && (
+                                          <button
+                                              onClick={() => handleSimFormSubmit('📹 [ویدیو ارسال شد]')}
+                                              className="w-full py-3 bg-red-600/20 border border-red-500/30 text-red-300 hover:bg-red-600/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                          >
+                                              <Video size={16} />
+                                              ارسال ویدیو (شبیه‌سازی)
+                                          </button>
+                                      )}
+
+                                      {currentQ.type === 'audio' && (
+                                          <button
+                                              onClick={() => handleSimFormSubmit('🎙️ [صدا ارسال شد]')}
+                                              className="w-full py-3 bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                          >
+                                              <Music size={16} />
+                                              ارسال پیام صوتی (شبیه‌سازی)
+                                          </button>
+                                      )}
+
+                                      {currentQ.type === 'location' && (
+                                          <div className="space-y-3 text-center p-2">
+                                              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center gap-2 text-xs text-amber-300">
+                                                  <span>📍</span>
+                                                  <span>کاربر موقعیت خودش رو می‌فرسته</span>
+                                              </div>
+                                              <button
+                                                  onClick={() => handleSimFormSubmit('📍 موقعیت: Lat: 35.6892, Lng: 51.3890')}
+                                                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20"
+                                              >
+                                                  <span>📍</span>
+                                                  ارسال موقعیت مکانی من (شبیه‌سازی)
+                                              </button>
+                                          </div>
+                                      )}
+
+                                      {currentQ.type === 'date' && (
+                                          <div className="space-y-3">
+                                              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center gap-2 text-xs text-blue-300">
+                                                  <span>📅</span>
+                                                  <span>انتخاب تاریخ توسط کاربر</span>
+                                              </div>
+                                              <input
+                                                  type="date"
+                                                  id="sim-input-date"
+                                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-blue-500"
+                                              />
+                                              <button
+                                                  onClick={() => {
+                                                      const el = document.getElementById('sim-input-date') as HTMLInputElement;
+                                                      const val = el?.value || new Date().toISOString().split('T')[0];
+                                                      handleSimFormSubmit(`📅 تاریخ: ${val}`);
+                                                  }}
+                                                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-600/20"
+                                              >
+                                                  تایید و ارسال تاریخ
+                                              </button>
+                                          </div>
+                                      )}
+
+                                      {currentQ.type === 'select' && (
+                                          <div className="space-y-2">
+                                              <p className="text-[11px] text-slate-400 mb-2">لطفاً یکی از گزینه‌های زیر را انتخاب کنید:</p>
+                                              {(currentQ.options && currentQ.options.length > 0) ? (
+                                                  <div className="grid grid-cols-1 gap-2">
+                                                      {currentQ.options.map((opt, oIdx) => (
+                                                          <button
+                                                              key={oIdx}
+                                                              onClick={() => handleSimFormSubmit(`☑️ ${opt}`)}
+                                                              className="w-full py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-200 rounded-xl text-xs font-medium text-right transition-all flex items-center justify-between"
+                                                          >
+                                                              <span>{opt}</span>
+                                                              <span className="text-[10px] opacity-60">انتخاب ➔</span>
+                                                          </button>
+                                                      ))}
+                                                  </div>
+                                              ) : (
+                                                  <div className="text-center p-3 border border-dashed border-white/10 rounded-xl text-slate-400 text-xs">
+                                                      هیچ گزینه‌ای برای این سوال ثبت نشده است.
+                                                      <button
+                                                          onClick={() => handleSimFormSubmit('☑️ گزینه بدون عنوان')}
+                                                          className="block mx-auto mt-2 text-[11px] text-blue-400 hover:underline"
+                                                      >
+                                                          رد شدن از این سوال
+                                                      </button>
+                                                  </div>
+                                              )}
+                                          </div>
+                                      )}
+
+                                      {currentQ.type === 'checkbox' && (
+                                          <div className="space-y-3">
+                                              <p className="text-[11px] text-slate-400 mb-1">یک یا چند گزینه را علامت بزنید و تایید کنید:</p>
+                                              {(currentQ.options && currentQ.options.length > 0) ? (
+                                                  <FormCheckboxSimulator
+                                                      options={currentQ.options}
+                                                      onSubmit={(selected) => {
+                                                          handleSimFormSubmit(`✅ گزینه‌ها: ${selected.join(', ')}`);
+                                                      }}
+                                                  />
+                                              ) : (
+                                                  <div className="text-center p-3 border border-dashed border-white/10 rounded-xl text-slate-400 text-xs">
+                                                      هیچ گزینه‌ای برای این سوال ثبت نشده است.
+                                                      <button
+                                                          onClick={() => handleSimFormSubmit('✅ هیچ گزینه‌ای انتخاب نشد')}
+                                                          className="block mx-auto mt-2 text-[11px] text-blue-400 hover:underline"
+                                                      >
+                                                          رد شدن از این سوال
+                                                      </button>
+                                                  </div>
+                                              )}
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>
+                          );
+                      })()}
+
+                      {previewModal.type === 'link' && (
+                          <div className="text-center space-y-3 py-4">
+                              <Globe size={32} className="mx-auto text-blue-400 animate-bounce" />
+                              <p className="text-xs text-slate-300">انتقال به آدرس اینترنتی:</p>
+                              <p className="text-xs font-mono bg-black/40 p-2 rounded-lg text-blue-300 dir-ltr truncate">{previewModal.value}</p>
+                              <button
+                                  onClick={() => setPreviewModal(null)}
+                                  className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold transition-all"
+                              >
+                                  بستن
+                              </button>
+                          </div>
+                      )}
+
+                      {previewModal.type === 'inquiry' && (
+                          <div className="text-center space-y-3 py-4">
+                              <PhoneCall size={32} className="mx-auto text-emerald-400" />
+                              <p className="text-xs text-slate-300">درخواست کاتالوگ و استعلام برای کاربر ارسال شد (شبیه‌سازی).</p>
+                              <button
+                                  onClick={() => setPreviewModal(null)}
+                                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all"
+                              >
+                                  بستن
+                              </button>
+                          </div>
+                      )}
+                  </div>
               </div>
           </div>
       )}
@@ -1253,6 +1675,11 @@ export const KeyboardBuilder: React.FC = () => {
                          {btn.type === 'submenu' && (
                            <div className="absolute top-0 right-0 w-3 h-3 border-t-[3px] border-l-[3px] border-orange-500/50 rounded-tl-sm" />
                          )}
+                         {btn.condition?.type && btn.condition.type !== 'none' && (
+                           <div className="absolute top-1 left-1 text-amber-400 bg-amber-500/20 px-1 py-0.5 rounded text-[10px] flex items-center gap-0.5" title="دکمه شرطی">
+                             <Zap size={10} />
+                           </div>
+                         )}
                          
                          {btn.type === 'link' && <LinkIcon size={12} className="opacity-50" />}
                          {btn.type === 'submenu' && <Layers size={12} className="opacity-50 text-orange-400" />}
@@ -1260,6 +1687,8 @@ export const KeyboardBuilder: React.FC = () => {
                          {btn.type === 'form' && <FileText size={12} className="opacity-50" />}
                          {btn.type === 'command' && <Command size={12} className="opacity-50" />}
                          {btn.type === 'inquiry' && <PhoneCall size={12} className="opacity-50 text-green-400" />}
+                         {btn.type === 'api' && <Globe size={12} className="opacity-50 text-purple-400" />}
+                         {(btn.type === 'ticket' || (btn.type === 'callback' && btn.value === 'support')) && <MessageSquare size={12} className="opacity-50 text-blue-400" />}
                          
                          {getButtonDisplayText(btn)}
                       </button>
@@ -1343,10 +1772,26 @@ export const KeyboardBuilder: React.FC = () => {
                 <div>
                    <label className="text-xs dark:text-white/50 text-slate-500 mb-1 block">نوع عملکرد</label>
                    <select 
-                      value={getSelectedBtnObj()!.type}
+                      value={
+                        getSelectedBtnObj()!.type === 'callback' && getSelectedBtnObj()!.value === 'support' 
+                          ? 'ticket' 
+                          : getSelectedBtnObj()!.type
+                      }
                       onChange={(e) => {
                         const newType = e.target.value as any;
-                        if (newType === 'product') {
+                        if (newType === 'ticket') {
+                          updateCurrentButton({
+                            type: 'callback',
+                            value: 'support',
+                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🎫 تیکت پشتیبانی'
+                          });
+                        } else if (newType === 'api') {
+                          updateCurrentButton({
+                            type: 'api',
+                            apiUrl: getSelectedBtnObj()!.apiUrl || '',
+                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🔗 فراخوانی API'
+                          });
+                        } else if (newType === 'product') {
                           const products = getProducts();
                           const firstProd = products[0];
                           if (firstProd) {
@@ -1362,14 +1807,17 @@ export const KeyboardBuilder: React.FC = () => {
                             });
                           }
                         } else {
-                          updateCurrentButton({ type: newType });
+                          const curVal = getSelectedBtnObj()!.value === 'support' ? '' : getSelectedBtnObj()!.value;
+                          updateCurrentButton({ type: newType, value: curVal });
                         }
                       }}
                       className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"
                    >
-                      <option value="callback">نمایش پیام ساده</option>
+                      <option value="callback">نمایش پیام ساده (Callback)</option>
                       <option value="submenu">زیر منو (دکمه‌های تو در تو)</option>
                       <option value="product">🛒 محصول فروشگاهی</option>
+                      <option value="ticket">🎫 تیکت پشتیبانی</option>
+                      <option value="api">🔗 فراخوانی API/Webhook</option>
                       <option value="link">لینک وب‌سایت (Url)</option>
                       <option value="form">فرم دریافت اطلاعات</option>
                       <option value="inquiry">📞 استعلام و خرید (ارسال کاتالوگ)</option>
@@ -1531,6 +1979,31 @@ export const KeyboardBuilder: React.FC = () => {
                                />
                            </div>
                        </div>
+                   ) : getSelectedBtnObj()!.type === 'api' ? (
+                       <div className="mt-2 space-y-2 bg-white/5 p-3 rounded-xl border border-white/10 col-span-1 md:col-span-2">
+                           <label className="text-xs text-slate-300 font-medium block">آدرس API / Webhook (URL)</label>
+                           <input 
+                               type="text" 
+                               value={getSelectedBtnObj()!.apiUrl || ''}
+                               onChange={e => updateCurrentButton({ apiUrl: e.target.value })}
+                               placeholder="https://api.example.com/webhook"
+                               className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-white text-left dir-ltr outline-none focus:border-blue-500"
+                               dir="ltr"
+                           />
+                           <p className="text-[10px] text-slate-400 leading-relaxed">
+                               با کلیک روی این دکمه توسط کاربر، یک درخواست POST به این آدرس ارسال می‌گردد.
+                           </p>
+                       </div>
+                   ) : (getSelectedBtnObj()!.type === 'ticket' || (getSelectedBtnObj()!.type === 'callback' && getSelectedBtnObj()!.value === 'support')) ? (
+                       <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl col-span-1 md:col-span-2 text-xs text-blue-300 space-y-1">
+                           <p className="font-bold flex items-center gap-1.5">
+                               <span>🎫</span>
+                               تیکت پشتیبانی ربات
+                           </p>
+                           <p className="text-slate-300 text-[11px] leading-relaxed">
+                               با کلیک کاربر روی این دکمه، جریان ثبت تیکت پشتیبانی (/support) مستقیماً برای وی شروع می‌شود.
+                           </p>
+                       </div>
                    ) : (
                      <>
                         <label className="text-xs dark:text-white/50 text-slate-500 mb-1 block flex items-center gap-1">
@@ -1557,6 +2030,65 @@ export const KeyboardBuilder: React.FC = () => {
                         </div>
                      </>
                    )}
+                </div>
+
+                {/* Button Condition Section */}
+                <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-white/10 space-y-3">
+                    <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                        <Zap size={14} />
+                        شرط نمایش دکمه (اختیاری)
+                    </label>
+                    <select
+                        value={getSelectedBtnObj()!.condition?.type || 'none'}
+                        onChange={(e) => {
+                            const condType = e.target.value as 'none' | 'order_status_confirmed' | 'product_category';
+                            if (condType === 'product_category') {
+                                updateCurrentButton({
+                                    condition: {
+                                        type: 'product_category',
+                                        value: getSelectedBtnObj()!.condition?.value || ''
+                                    }
+                                });
+                            } else {
+                                updateCurrentButton({
+                                    condition: { type: condType }
+                                });
+                            }
+                        }}
+                        className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"
+                    >
+                        <option value="none">همیشه نمایش بده (پیش‌فرض)</option>
+                        <option value="order_status_confirmed">فقط اگه سفارش تایید شده باشد</option>
+                        <option value="product_category">فقط برای دسته‌بندی محصول خاص</option>
+                    </select>
+
+                    {getSelectedBtnObj()!.condition?.type === 'order_status_confirmed' && (
+                        <p className="text-[11px] text-amber-300/80 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl leading-relaxed">
+                            💡 این فقط توی پیام‌های بعد از تایید سفارش اثر داره؛ توی منوهای عادی نادیده گرفته می‌شود.
+                        </p>
+                    )}
+
+                    {getSelectedBtnObj()!.condition?.type === 'product_category' && (
+                        <div className="space-y-2 pt-1">
+                            <input
+                                type="text"
+                                value={getSelectedBtnObj()!.condition?.value || ''}
+                                onChange={(e) => {
+                                    updateCurrentButton({
+                                        condition: {
+                                            type: 'product_category',
+                                            value: e.target.value
+                                        }
+                                    });
+                                }}
+                                placeholder="نام دسته‌بندی محصول (مثلاً: دیجیتال)"
+                                className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-sm text-white outline-none focus:border-blue-500"
+                            />
+                            <p className="text-[11px] text-amber-300/80 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl leading-relaxed">
+                                💡 فقط وقتی این دکمه بخشی از پیام بعد از تایید یه محصول با همین دسته‌بندی باشه نمایش داده میشه.
+                            </p>
+                        </div>
+                    )}
                 </div>
              </div>
           </GlassCard>
@@ -1618,6 +2150,9 @@ export const KeyboardBuilder: React.FC = () => {
                             }
                           `}
                         >
+                          {btn.condition?.type && btn.condition.type !== 'none' && (
+                            <span className="text-amber-400 font-bold ml-1 inline-block" title="دکمه شرطی">⚡</span>
+                          )}
                           {getButtonDisplayText(btn)}
                         </button>
                       ))}

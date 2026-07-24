@@ -23,7 +23,7 @@ export interface BotConfig {
   isActive: boolean;
 }
 
-export type ButtonActionType = 'link' | 'submenu' | 'form' | 'command' | 'callback' | 'inquiry' | 'product';
+export type ButtonActionType = 'link' | 'submenu' | 'form' | 'command' | 'callback' | 'inquiry' | 'product' | 'ticket' | 'api';
 
 export interface InquiryConfig {
     adminId: string; // The admin who receives the lead
@@ -41,7 +41,12 @@ export interface InlineButton {
   targetMenuId?: string; // ID of the submenu Page if type is 'submenu'
   inquiryConfig?: InquiryConfig; // NEW: For Inquiry/Lead Gen buttons
   productId?: string; // NEW: For Mini Shop Product buttons
+  apiUrl?: string; // NEW: For API / Webhook buttons
   color?: 'default' | 'blue' | 'green' | 'red' | 'gold' | 'orange'; // NEW: Colored inline buttons
+  condition?: {
+    type: 'none' | 'order_status_confirmed' | 'product_category';
+    value?: string;
+  };
 }
 
 export interface InlineRow {
@@ -67,10 +72,13 @@ export interface MenuPage {
   parentId?: string; // To navigate back
 }
 
+export type FormQuestionType = 'text' | 'number' | 'photo' | 'document' | 'video' | 'audio' | 'location' | 'date' | 'select' | 'checkbox';
+
 export interface FormQuestion {
     id: string;
     text: string;
-    type: 'text' | 'number' | 'photo' | 'document';
+    type: FormQuestionType;
+    options?: string[];
 }
 
 export interface FormConfig {
@@ -177,5 +185,16 @@ export interface Order {
   status: 'pending' | 'confirmed' | 'rejected';
   createdAt: number;
   fulfillment?: { q?: string; a?: string; question?: string; answer?: string }[] | Record<string, string>;
+}
+
+export interface BotTicket {
+  id: string; // مانند "SUP-X9F4"
+  userId: string;
+  userFirstName: string;
+  message: string;
+  status: 'open' | 'answered';
+  adminReply?: string;
+  createdAt: number | string;
+  repliedAt?: number | string;
 }
 
