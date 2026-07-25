@@ -159,6 +159,12 @@ export interface MediaFile {
     fileId?: string;
 }
 
+export type MiniAppModule = 'shop' | 'orders' | 'support' | 'forms';
+
+export interface MiniAppConfig {
+  enabledModules: MiniAppModule[];
+}
+
 export interface Product {
   id: string;
   name: string;

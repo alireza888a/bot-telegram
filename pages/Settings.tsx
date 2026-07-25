@@ -3,10 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
     Save, Database, Download, Upload, RefreshCcw, Server, 
-    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard, UserCog, MessageSquareCode
+    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard, UserCog, MessageSquareCode, AppWindow, LayoutGrid
 } from 'lucide-react';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
+import { MiniAppModule } from '../types';
 
 export const Settings: React.FC = () => {
     const [token, setToken] = useState(localStorage.getItem('bot_token') || '');
@@ -25,6 +26,18 @@ export const Settings: React.FC = () => {
 
     // Post Confirm Menu State
     const [postConfirmMenuId, setPostConfirmMenuId] = useState(localStorage.getItem('post_confirm_menu_id') || '');
+
+    // Mini App Modules State
+    const [miniappModules, setMiniappModules] = useState<MiniAppModule[]>(() => {
+        try {
+            const saved = localStorage.getItem('miniapp_modules');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch {}
+        return ['shop'];
+    });
 
     const [isCheckingDb, setIsCheckingDb] = useState(false);
     const [dbStatus, setDbStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -73,6 +86,22 @@ export const Settings: React.FC = () => {
         localStorage.setItem('post_confirm_menu_id', postConfirmMenuId);
         syncNow();
     }, [postConfirmMenuId]);
+
+    useEffect(() => {
+        localStorage.setItem('miniapp_modules', JSON.stringify(miniappModules));
+        syncNow();
+    }, [miniappModules]);
+
+    const toggleMiniAppModule = (mod: MiniAppModule) => {
+        setMiniappModules(prev => {
+            if (prev.includes(mod)) {
+                const next = prev.filter(m => m !== mod);
+                return next.length > 0 ? next : ['shop'];
+            } else {
+                return [...prev, mod];
+            }
+        });
+    };
 
     const getKbMenus = (): Record<string, { id?: string; title?: string; content?: string }> => {
         try {
@@ -557,6 +586,88 @@ export const Settings: React.FC = () => {
                                 وقتی سفارشی رو از صفحهی سفارشها تایید میکنی، علاوه بر پیام تایید، این منو (با هر متن، عکس، دکمه یا لینکی که توش گذاشتی) هم مستقیم برای خریدار ارسال میشه — مثلاً لینک دانلود، دکمهی پیگیری سفارش، یا راهنمای استفاده.
                             </p>
                         </div>
+                    </div>
+                </GlassCard>
+
+                {/* 6. MINI APP MODULES SETTINGS */}
+                <GlassCard className="border-t-4 border-t-indigo-500">
+                    <div className="flex items-center gap-2 mb-4">
+                        <AppWindow className="text-indigo-400"/>
+                        <h3 className="font-bold text-lg dark:text-white text-slate-800">ماژول‌های اپلیکیشن فروشگاه (Mini App)</h3>
+                    </div>
+
+                    <p className="text-xs text-slate-400 mb-5 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
+                        هر ماژولی که تیک بزنی، به‌عنوان یه تب داخل Mini App مشتری‌هات ظاهر میشه.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label 
+                            onClick={() => toggleMiniAppModule('shop')}
+                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                miniappModules.includes('shop') 
+                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
+                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <input 
+                                type="checkbox" 
+                                checked={miniappModules.includes('shop')}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
+                            />
+                            <span className="text-sm font-bold">🛍 فروشگاه</span>
+                        </label>
+
+                        <label 
+                            onClick={() => toggleMiniAppModule('orders')}
+                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                miniappModules.includes('orders') 
+                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
+                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <input 
+                                type="checkbox" 
+                                checked={miniappModules.includes('orders')}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
+                            />
+                            <span className="text-sm font-bold">📦 سوابق سفارش‌ها</span>
+                        </label>
+
+                        <label 
+                            onClick={() => toggleMiniAppModule('support')}
+                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                miniappModules.includes('support') 
+                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
+                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <input 
+                                type="checkbox" 
+                                checked={miniappModules.includes('support')}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
+                            />
+                            <span className="text-sm font-bold">💬 پشتیبانی</span>
+                        </label>
+
+                        <label 
+                            onClick={() => toggleMiniAppModule('forms')}
+                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                miniappModules.includes('forms') 
+                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
+                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <input 
+                                type="checkbox" 
+                                checked={miniappModules.includes('forms')}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
+                            />
+                            <span className="text-sm font-bold">📝 فرم‌ها</span>
+                        </label>
                     </div>
                 </GlassCard>
             </div>
