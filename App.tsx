@@ -14,10 +14,16 @@ import { Products } from './pages/Products';
 import { Orders } from './pages/Orders';
 import { CustomerTickets } from './pages/CustomerTickets';
 import { Automations } from './pages/Automations';
+import { MiniShop } from './pages/MiniShop';
 import { BotEngine } from './components/BotEngine'; 
 import { useCloudAutoSave } from './hooks/useCloudAutoSave';
 
 const App: React.FC = () => {
+  const isMiniApp = new URLSearchParams(window.location.search).has('code') && window.location.pathname.includes('miniapp');
+  if (isMiniApp) {
+    return <MiniShop />;
+  }
+
   // Persist Current Page
   const [currentPage, setCurrentPage] = useState(() => {
     if (typeof window !== 'undefined') {

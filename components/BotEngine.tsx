@@ -583,12 +583,21 @@ export const BotEngine: React.FC = () => {
     const sendMenu = async (token: string, chatId: number | string, menu: MenuPage, user: any) => {
         const kb = {
             inline_keyboard: [
-                ...menu.rows.map(r => r.buttons.map(b => ({
-                    text: b.text,
-                    callback_data: b.type === 'link' ? undefined : (b.type==='submenu' ? (b.targetMenuId||'root') : (b.type==='form'?b.value:'noop')),
-                    url: b.type === 'link' ? b.value : undefined,
-                    style: mapColorToStyle(b.color)
-                }))),
+                ...menu.rows.map(r => r.buttons.map(b => {
+                    if (b.type === 'webapp') {
+                        return {
+                            text: b.text,
+                            web_app: { url: b.webAppUrl || b.value || '' },
+                            style: mapColorToStyle(b.color)
+                        };
+                    }
+                    return {
+                        text: b.text,
+                        callback_data: b.type === 'link' ? undefined : (b.type==='submenu' ? (b.targetMenuId||'root') : (b.type==='form'?b.value:'noop')),
+                        url: b.type === 'link' ? b.value : undefined,
+                        style: mapColorToStyle(b.color)
+                    };
+                })),
                 ...(menu.id !== 'root' ? [[{text: '🏠 منوی اصلی', callback_data: 'root'}, {text: '🔙 بازگشت', callback_data: menu.parentId || 'root'}]] : [])
             ]
         };

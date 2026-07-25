@@ -23,7 +23,7 @@ export interface BotConfig {
   isActive: boolean;
 }
 
-export type ButtonActionType = 'link' | 'submenu' | 'form' | 'command' | 'callback' | 'inquiry' | 'product' | 'ticket' | 'api';
+export type ButtonActionType = 'link' | 'submenu' | 'form' | 'command' | 'callback' | 'inquiry' | 'product' | 'ticket' | 'api' | 'webapp';
 
 export interface InquiryConfig {
     adminId: string; // The admin who receives the lead
@@ -42,6 +42,7 @@ export interface InlineButton {
   inquiryConfig?: InquiryConfig; // NEW: For Inquiry/Lead Gen buttons
   productId?: string; // NEW: For Mini Shop Product buttons
   apiUrl?: string; // NEW: For API / Webhook buttons
+  webAppUrl?: string; // NEW: For Telegram Mini App URL
   color?: 'default' | 'blue' | 'green' | 'red' | 'gold' | 'orange'; // NEW: Colored inline buttons
   condition?: {
     type: 'none' | 'order_status_confirmed' | 'product_category';

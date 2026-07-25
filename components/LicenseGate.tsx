@@ -15,6 +15,11 @@ interface LicenseGateProps {
 const API_URL = 'https://corepanel-api.tajikr450.workers.dev/api/auth';
 
 export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
+  const isMiniApp = new URLSearchParams(window.location.search).has('code') && window.location.pathname.includes('miniapp');
+  if (isMiniApp) {
+    return <>{children}</>;
+  }
+
   const [deviceId, setDeviceId] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);

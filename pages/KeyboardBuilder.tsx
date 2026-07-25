@@ -134,6 +134,9 @@ export const KeyboardBuilder: React.FC = () => {
     if (btn.type === 'ticket' || (btn.type === 'callback' && btn.value === 'support')) {
       return btn.text || '🎫 تیکت پشتیبانی';
     }
+    if (btn.type === 'webapp') {
+      return btn.text || '🛍 ورود به فروشگاه';
+    }
     if (btn.type === 'api') {
       return btn.text || '🔗 فراخوانی API';
     }
@@ -1785,6 +1788,20 @@ export const KeyboardBuilder: React.FC = () => {
                             value: 'support',
                             text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🎫 تیکت پشتیبانی',
                             productId: undefined,
+                            apiUrl: undefined,
+                            webAppUrl: undefined
+                          });
+                        } else if (newType === 'webapp') {
+                          const licenseCacheStr = localStorage.getItem('license_cache') || '{}';
+                          let code = '';
+                          try { code = JSON.parse(licenseCacheStr).code || ''; } catch {}
+                          const webAppUrl = `${window.location.origin}/miniapp?code=${encodeURIComponent(code)}`;
+                          updateCurrentButton({
+                            type: 'webapp',
+                            webAppUrl: webAppUrl,
+                            value: webAppUrl,
+                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🛍 ورود به فروشگاه',
+                            productId: undefined,
                             apiUrl: undefined
                           });
                         } else if (newType === 'api') {
@@ -1792,7 +1809,8 @@ export const KeyboardBuilder: React.FC = () => {
                             type: 'api',
                             apiUrl: getSelectedBtnObj()!.apiUrl || '',
                             text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🔗 فراخوانی API',
-                            productId: undefined
+                            productId: undefined,
+                            webAppUrl: undefined
                           });
                         } else if (newType === 'product') {
                           const products = getProducts();
@@ -1802,24 +1820,27 @@ export const KeyboardBuilder: React.FC = () => {
                               type: 'product',
                               productId: firstProd.id,
                               text: `🛒 ${firstProd.name} — ${firstProd.price.toLocaleString('fa-IR')} تومان`,
-                              apiUrl: undefined
+                              apiUrl: undefined,
+                              webAppUrl: undefined
                             });
                           } else {
                             updateCurrentButton({
                               type: 'product',
                               text: '🛒 انتخاب محصول...',
-                              apiUrl: undefined
+                              apiUrl: undefined,
+                              webAppUrl: undefined
                             });
                           }
                         } else {
                           const curVal = getSelectedBtnObj()!.value === 'support' ? '' : getSelectedBtnObj()!.value;
-                          updateCurrentButton({ type: newType, value: curVal, productId: undefined, apiUrl: undefined });
+                          updateCurrentButton({ type: newType, value: curVal, productId: undefined, apiUrl: undefined, webAppUrl: undefined });
                         }
                       }}
                       className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"
                    >
                       <option value="callback">نمایش پیام ساده (Callback)</option>
                       <option value="submenu">زیر منو (دکمه‌های تو در تو)</option>
+                      <option value="webapp">🛍 باز کردن فروشگاه (Mini App)</option>
                       <option value="product">🛒 محصول فروشگاهی</option>
                       <option value="ticket">🎫 تیکت پشتیبانی</option>
                       <option value="api">🔗 فراخوانی API/Webhook</option>
@@ -1983,6 +2004,23 @@ export const KeyboardBuilder: React.FC = () => {
                                    className="w-full h-20 bg-black/20 border border-white/10 rounded p-2 text-xs text-white resize-none"
                                />
                            </div>
+                       </div>
+                   ) : getSelectedBtnObj()!.type === 'webapp' ? (
+                       <div className="mt-2 space-y-2 bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-xl col-span-1 md:col-span-2">
+                           <label className="text-xs text-emerald-300 font-bold block flex items-center gap-1.5">
+                               <ShoppingBag size={15} />
+                               آدرس فروشگاه تلگرام (Mini App)
+                           </label>
+                           <input 
+                               type="text" 
+                               readOnly
+                               value={getSelectedBtnObj()!.webAppUrl || `${window.location.origin}/miniapp`}
+                               className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-emerald-200 text-left dir-ltr outline-none cursor-text font-mono"
+                               dir="ltr"
+                           />
+                           <p className="text-[11px] text-slate-300 leading-relaxed">
+                               این دکمه فروشگاه رو مستقیم داخل تلگرام (نه مرورگر) باز میکنه.
+                           </p>
                        </div>
                    ) : getSelectedBtnObj()!.type === 'api' ? (
                        <div className="mt-2 space-y-2 bg-white/5 p-3 rounded-xl border border-white/10 col-span-1 md:col-span-2">
