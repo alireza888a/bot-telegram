@@ -1783,13 +1783,16 @@ export const KeyboardBuilder: React.FC = () => {
                           updateCurrentButton({
                             type: 'callback',
                             value: 'support',
-                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🎫 تیکت پشتیبانی'
+                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🎫 تیکت پشتیبانی',
+                            productId: undefined,
+                            apiUrl: undefined
                           });
                         } else if (newType === 'api') {
                           updateCurrentButton({
                             type: 'api',
                             apiUrl: getSelectedBtnObj()!.apiUrl || '',
-                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🔗 فراخوانی API'
+                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🔗 فراخوانی API',
+                            productId: undefined
                           });
                         } else if (newType === 'product') {
                           const products = getProducts();
@@ -1798,17 +1801,19 @@ export const KeyboardBuilder: React.FC = () => {
                             updateCurrentButton({
                               type: 'product',
                               productId: firstProd.id,
-                              text: `🛒 ${firstProd.name} — ${firstProd.price.toLocaleString('fa-IR')} تومان`
+                              text: `🛒 ${firstProd.name} — ${firstProd.price.toLocaleString('fa-IR')} تومان`,
+                              apiUrl: undefined
                             });
                           } else {
                             updateCurrentButton({
                               type: 'product',
-                              text: '🛒 انتخاب محصول...'
+                              text: '🛒 انتخاب محصول...',
+                              apiUrl: undefined
                             });
                           }
                         } else {
                           const curVal = getSelectedBtnObj()!.value === 'support' ? '' : getSelectedBtnObj()!.value;
-                          updateCurrentButton({ type: newType, value: curVal });
+                          updateCurrentButton({ type: newType, value: curVal, productId: undefined, apiUrl: undefined });
                         }
                       }}
                       className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"

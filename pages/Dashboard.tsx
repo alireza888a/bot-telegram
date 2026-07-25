@@ -63,7 +63,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   // Fetch Bot Health API & Telegram Webhook Status
   const fetchHealthAndStatus = async () => {
       setHealthLoading(true);
-      const code = localStorage.getItem('license_cache') || '';
+      let code = '';
+      try {
+          const cache = JSON.parse(localStorage.getItem('license_cache') || '{}');
+          code = cache.code || '';
+      } catch {
+          code = '';
+      }
       const botToken = localStorage.getItem('bot_token') || token;
 
       // 1. Fetch /api/bot/health
