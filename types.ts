@@ -198,3 +198,15 @@ export interface BotTicket {
   repliedAt?: number | string;
 }
 
+export type AutomationTrigger = 'new_order' | 'order_rejected' | 'new_user' | 'ticket_created';
+
+export interface AutomationRule {
+  id: string;
+  trigger: AutomationTrigger;
+  enabled: boolean;
+  productCategory?: string; // اختیاری — فقط برای new_order/order_rejected؛ خالی یعنی برای همه محصولات
+  menuId?: string;          // اختیاری — کدوم منو ارسال بشه
+  formId?: string;          // اختیاری — کدوم فرم شروع بشه
+  messageText?: string;     // اختیاری — یه متن ثابت اضافه (می‌تونه با بقیه ترکیب بشه)
+}
+

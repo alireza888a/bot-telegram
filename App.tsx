@@ -13,6 +13,7 @@ import { Users } from './pages/Users';
 import { Products } from './pages/Products';
 import { Orders } from './pages/Orders';
 import { CustomerTickets } from './pages/CustomerTickets';
+import { Automations } from './pages/Automations';
 import { BotEngine } from './components/BotEngine'; 
 import { useCloudAutoSave } from './hooks/useCloudAutoSave';
 
@@ -78,6 +79,8 @@ const App: React.FC = () => {
         return <Orders />;
       case 'customer-tickets':
         return <CustomerTickets />;
+      case 'automations':
+        return <Automations />;
       case 'support':
         return <Support />;
       case 'settings':
