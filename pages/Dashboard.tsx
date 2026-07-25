@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { 
     Users, Send, Activity, Bot, ArrowRight, Zap, ShieldCheck, 
     Layers, Command, Settings, Megaphone, CheckCircle, AlertCircle, 
-    Clock, RefreshCw, BarChart3 
+    Clock, RefreshCw, BarChart3, AlertTriangle, Key, Wifi, Link2
 } from 'lucide-react';
 import { telegramService, TelegramUser } from '../services/telegramService';
 
@@ -22,11 +22,32 @@ interface DashboardProps {
     onNavigate: (page: string) => void;
 }
 
+interface HealthData {
+    ok?: boolean;
+    last_webhook_at?: number | null;
+    plan?: string;
+    expires_at?: string | null;
+    is_active?: boolean;
+    expected_webhook_url?: string;
+}
+
+interface WebhookData {
+    url?: string;
+    last_error_message?: string;
+    has_custom_certificate?: boolean;
+    pending_update_count?: number;
+}
+
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [token, setToken] = useState(localStorage.getItem('bot_token') || '');
   const [botInfo, setBotInfo] = useState<TelegramUser | null>(null);
   const [isOnline, setIsOnline] = useState<boolean | null>(null); // null=checking, true=online, false=offline
   const [isLoading, setIsLoading] = useState(false);
+
+  // Health & License State
+  const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [webhookData, setWebhookData] = useState<WebhookData | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   // Real-Time Stats
   const [stats, setStats] = useState({
@@ -39,8 +60,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [recentLogs, setRecentLogs] = useState<LogItem[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
 
+  // Fetch Bot Health API & Telegram Webhook Status
+  const fetchHealthAndStatus = async () => {
+      setHealthLoading(true);
+      const code = localStorage.getItem('license_cache') || '';
+      const botToken = localStorage.getItem('bot_token') || token;
+
+      // 1. Fetch /api/bot/health
+      if (code) {
+          try {
+              const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/bot/health', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ code })
+              });
+              const data = await res.json();
+              if (data && data.ok) {
+                  setHealthData(data);
+              } else {
+                  setHealthData(data || null);
+              }
+          } catch (e) {
+              console.error("Error fetching health data:", e);
+          }
+      }
+
+      // 2. Fetch getWebhookInfo from Telegram
+      if (botToken) {
+          try {
+              const wbRes = await telegramService.getWebhookInfo(botToken);
+              if (wbRes && wbRes.ok && wbRes.result) {
+                  setWebhookData(wbRes.result);
+              }
+          } catch (e) {
+              console.error("Error fetching webhook info:", e);
+          }
+      }
+
+      setHealthLoading(false);
+  };
+
   // --- LOAD DATA ---
   useEffect(() => {
+      fetchHealthAndStatus();
+
       if (!token) return;
 
       const loadDashboardData = async () => {
@@ -75,9 +138,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
               setRecentLogs(logs.slice(-5).reverse());
 
-              // Generate Chart Data (Mocking realistic activity curve based on logs count)
-              // In a real backend app, this would be aggregated from DB.
-              // Here we simulate a curve that peaks "Now".
+              // Generate Chart Data
               const baseActivity = logs.length > 0 ? Math.ceil(logs.length / 10) : 5;
               setChartData([
                   { name: '00:00', activity: baseActivity + 2 },
@@ -98,6 +159,101 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
       loadDashboardData();
   }, [token]);
+
+  // Format time ago for last_webhook_at
+  const formatTimeAgo = (timestampMs: number | null | undefined) => {
+      if (!timestampMs) return 'هنوز هیچ پیامی دریافت نشده';
+      const diffMs = Date.now() - timestampMs;
+      if (diffMs < 0) return 'هم‌اکنون';
+      if (diffMs < 60000) return 'چند لحظه پیش';
+      if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} دقیقه پیش`;
+      if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)} ساعت پیش`;
+      return `${Math.floor(diffMs / 86400000)} روز پیش`;
+  };
+
+  // Render License Status Badge
+  const renderLicenseStatus = () => {
+      if (!healthData) {
+          return (
+              <span className="text-xs text-slate-400 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+                  در حال دریافت اطلاعات لایسنس...
+              </span>
+          );
+      }
+
+      if (healthData.is_active === false) {
+          return (
+              <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  ⛔️ لایسنس غیرفعال شده
+              </span>
+          );
+      }
+
+      if (!healthData.expires_at) {
+          return (
+              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  ✅ لایسنس دائمی (Lifetime)
+              </span>
+          );
+      }
+
+      const daysLeft = Math.ceil((new Date(healthData.expires_at).getTime() - new Date().getTime()) / 86400000);
+
+      if (daysLeft > 7) {
+          return (
+              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  ✅ {daysLeft} روز تا انقضا
+              </span>
+          );
+      } else if (daysLeft >= 1) {
+          return (
+              <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  ⚠️ فقط {daysLeft} روز تا انقضا — نزدیک به پایان
+              </span>
+          );
+      } else {
+          return (
+              <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  ❌ لایسنس منقضی شده
+              </span>
+          );
+      }
+  };
+
+  // Render Bot Activity Status
+  const getBotActivityInfo = () => {
+      const lastAt = healthData?.last_webhook_at;
+      if (!lastAt) {
+          return {
+              text: '🔴 ممکنه مشکلی باشه، بررسی کن',
+              color: 'text-red-400 bg-red-500/10 border-red-500/20'
+          };
+      }
+
+      const diffMs = Date.now() - lastAt;
+      const tenMins = 10 * 60 * 1000;
+      const twentyFourHours = 24 * 60 * 60 * 1000;
+
+      if (diffMs < tenMins) {
+          return {
+              text: '🟢 آنلاین و فعال',
+              color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+          };
+      } else if (diffMs <= twentyFourHours) {
+          return {
+              text: '🟡 مدتیه پیامی نیومده (طبیعیه اگه کاربری فعال نبوده)',
+              color: 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+          };
+      } else {
+          return {
+              text: '🔴 ممکنه مشکلی باشه، بررسی کن',
+              color: 'text-red-400 bg-red-500/10 border-red-500/20'
+          };
+      }
+  };
+
+  const isWebhookMismatch = webhookData && healthData?.expected_webhook_url && webhookData.url !== healthData.expected_webhook_url;
+  const botActivity = getBotActivityInfo();
 
   // --- WELCOME SCREEN (No Token) ---
   if (!token) {
@@ -152,6 +308,102 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-6 animate-fade-in pb-10">
         
+        {/* 0. BOT HEALTH & LICENSE STATUS WIDGET */}
+        <GlassCard className="border border-white/10 hover:border-blue-500/30 transition-all">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4 mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+                        <Activity size={22} />
+                    </div>
+                    <div>
+                        <h2 className="text-base font-bold text-white flex items-center gap-2">
+                            وضعیت ربات و لایسنس
+                        </h2>
+                        <p className="text-xs text-slate-400">بررسی آنی اعتبار لایسنس و سلامت ارتباط وب‌هوک ربات</p>
+                    </div>
+                </div>
+
+                <button
+                    onClick={fetchHealthAndStatus}
+                    disabled={healthLoading}
+                    className="bg-white/5 hover:bg-white/10 text-slate-300 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-white/10 shrink-0 self-end sm:self-auto disabled:opacity-50"
+                >
+                    <RefreshCw size={14} className={healthLoading ? 'animate-spin text-blue-400' : ''} />
+                    <span>بروزرسانی وضعیت</span>
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* بخش ۱: وضعیت لایسنس */}
+                <div className="bg-black/20 p-4 rounded-2xl border border-white/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                            <Key size={16} className="text-amber-400" />
+                            <span>وضعیت لایسنس</span>
+                        </div>
+                        {healthData?.plan && (
+                            <span className="text-[10px] font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                                پلن: {healthData.plan}
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="pt-1">
+                        {renderLicenseStatus()}
+                    </div>
+                </div>
+
+                {/* بخش ۲: وضعیت سلامت ربات */}
+                <div className="bg-black/20 p-4 rounded-2xl border border-white/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                            <Wifi size={16} className="text-blue-400" />
+                            <span>سلامت ارتباط و وب‌هوک</span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 pt-1">
+                        {/* Status Badge */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="text-xs text-slate-400">
+                                آخرین پیام دریافتی: <strong className="text-slate-200">{formatTimeAgo(healthData?.last_webhook_at)}</strong>
+                            </span>
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-xl border ${botActivity.color}`}>
+                                {botActivity.text}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Warnings & Alerts */}
+            {(isWebhookMismatch || webhookData?.last_error_message) && (
+                <div className="mt-4 space-y-2 pt-3 border-t border-white/5">
+                    {isWebhookMismatch && (
+                        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-300">
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle size={16} className="shrink-0 text-amber-400" />
+                                <span>⚠️ وب‌هوک درست تنظیم نشده — به Bot Connect برو و توکن رو دوباره تایید کن</span>
+                            </div>
+                            <button
+                                onClick={() => onNavigate('bot-connect')}
+                                className="px-2.5 py-1 bg-amber-500 text-slate-950 font-bold rounded-lg text-[11px] shrink-0 hover:bg-amber-400 transition-colors"
+                            >
+                                رفتن به Bot Connect
+                            </button>
+                        </div>
+                    )}
+
+                    {webhookData?.last_error_message && (
+                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-xs text-red-300">
+                            <AlertCircle size={16} className="shrink-0 text-red-400" />
+                            <span>⚠️ خطای اخیر تلگرام: {webhookData.last_error_message}</span>
+                        </div>
+                    )}
+                </div>
+            )}
+        </GlassCard>
+
         {/* 1. STATUS HEADER & BOT PROFILE */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <GlassCard className="lg:col-span-2 relative overflow-hidden">
@@ -308,3 +560,4 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     </div>
   );
 };
+
