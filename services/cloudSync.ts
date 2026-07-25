@@ -18,7 +18,8 @@ export const saveToCloud = async (code: string): Promise<boolean> => {
         payment_card_owner: localStorage.getItem('payment_card_owner'),
         admin_chat_id: localStorage.getItem('admin_chat_id'),
         support_chat_id: localStorage.getItem('support_chat_id'),
-        post_confirm_menu_id: localStorage.getItem('post_confirm_menu_id')
+        post_confirm_menu_id: localStorage.getItem('post_confirm_menu_id'),
+        miniapp_modules: JSON.parse(localStorage.getItem('miniapp_modules') || '["shop"]')
       },
       data: {
         menus: JSON.parse(localStorage.getItem('kb_menus') || '{}'),
@@ -80,6 +81,7 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
         if (json.config.admin_chat_id) localStorage.setItem('admin_chat_id', json.config.admin_chat_id);
         if (json.config.support_chat_id) localStorage.setItem('support_chat_id', json.config.support_chat_id);
         if (json.config.post_confirm_menu_id) localStorage.setItem('post_confirm_menu_id', json.config.post_confirm_menu_id);
+        if (json.config.miniapp_modules) localStorage.setItem('miniapp_modules', JSON.stringify(json.config.miniapp_modules));
       }
 
       // Restore Data
