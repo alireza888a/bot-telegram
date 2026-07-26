@@ -87,6 +87,7 @@ export interface FormConfig {
     title: string;
     adminId: string;
     questions: FormQuestion[];
+    visibleInMiniApp?: boolean;
 }
 
 export interface CommandConfig {

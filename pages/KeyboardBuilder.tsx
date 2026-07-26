@@ -832,6 +832,36 @@ export const KeyboardBuilder: React.FC = () => {
                   
                   {/* Content */}
                   <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                      <div className="bg-slate-800/40 border border-white/10 rounded-xl p-4 space-y-4">
+                          <div>
+                              <label className="text-sm text-slate-300 font-bold mb-1.5 block">
+                                  عنوان فرم
+                              </label>
+                              <input 
+                                  type="text" 
+                                  value={forms[editingFormId].title || ''}
+                                  onChange={(e) => updateForm(editingFormId, { title: e.target.value })}
+                                  placeholder="مثلاً: فرم ثبت نام / نظرسنجی"
+                                  className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-white text-sm outline-none focus:border-blue-500"
+                              />
+                          </div>
+
+                          <div className="pt-2 border-t border-white/5">
+                              <label className="flex items-center gap-3 cursor-pointer">
+                                  <input 
+                                      type="checkbox"
+                                      checked={!!forms[editingFormId].visibleInMiniApp}
+                                      onChange={(e) => updateForm(editingFormId, { visibleInMiniApp: e.target.checked })}
+                                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-white/20"
+                                  />
+                                  <span className="text-sm font-medium text-white">نمایش در Mini App</span>
+                              </label>
+                              <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed bg-white/5 p-2.5 rounded-lg border border-white/5">
+                                  فقط فرمهایی که همهی سوالاتشون از نوع متن، عدد، تاریخ، انتخاب از لیست یا چکباکس باشه، داخل Mini App قابلنمایشن؛ فرمهایی که سوال عکس/ویدیو/فایل/موقعیت مکانی دارن، حتی با این سوییچ فعال، فقط داخل خود چت جواب داده میشن.
+                              </p>
+                          </div>
+                      </div>
+
                       <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4">
                           <label className="text-sm text-blue-300 font-bold mb-2 block flex items-center gap-2">
                               <UserCog size={16}/> مقصد ارسال پاسخ‌ها (آیدی ادمین)
