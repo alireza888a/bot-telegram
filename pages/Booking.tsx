@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Plus, Trash2, Edit3, CheckCircle2, XCircle, RefreshCw, AlertTriangle, Loader2, Save, User, Tag } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, Edit3, CheckCircle2, XCircle, RefreshCw, AlertTriangle, Loader2, Save, User, Tag, Phone, Zap } from 'lucide-react';
 import { BookableService, WorkingHours, Booking } from '../types';
 import { loadFromCloud, syncNow } from '../services/cloudSync';
 
@@ -66,6 +66,32 @@ export const BookingPage: React.FC = () => {
       console.error(e);
     }
   }, []);
+
+  const handleAddBookingButtonToRoot = () => {
+    try {
+      const menus = JSON.parse(localStorage.getItem('kb_menus') || '{}');
+      const rootKey = menus['root'] ? 'root' : (menus['main'] ? 'main' : Object.keys(menus)[0]);
+      if (rootKey && menus[rootKey]) {
+        const alreadyExists = menus[rootKey].rows?.some((r: any) =>
+          r.buttons?.some((b: any) => b.type === 'callback' && b.value === 'booking')
+        );
+        if (!alreadyExists) {
+          const newButton = { id: 'btn_' + Date.now(), text: '📅 رزرو نوبت', type: 'callback', value: 'booking' };
+          menus[rootKey].rows = [...(menus[rootKey].rows || []), { id: 'row_' + Date.now(), buttons: [newButton] }];
+          localStorage.setItem('kb_menus', JSON.stringify(menus));
+          syncNow();
+          alert('✅ دکمه‌ی «رزرو نوبت» به منوی اصلی اضافه شد. الان توی ربات /start بزن تا ببینیش.');
+        } else {
+          alert('این دکمه از قبل توی منوی اصلی هست.');
+        }
+      } else {
+        alert('هنوز منوی اصلی (root) رو نساختی — اول برو دکمه‌ساز و منوی اصلی رو بساز.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('خطا در دسترسی به منوهای کیبورد.');
+    }
+  };
 
   // Fetch bookings from cloud
   const refreshBookings = async () => {
@@ -299,6 +325,31 @@ export const BookingPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Bot Connection Card (🔌 اتصال به ربات) */}
+      <div className="bg-gradient-to-r from-blue-900/40 via-cyan-900/30 to-slate-900/60 border border-cyan-500/30 p-5 rounded-2xl shadow-xl backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+            <Zap size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>🔌 اتصال به ربات</span>
+            </h2>
+            <p className="text-xs text-slate-300 mt-0.5">
+              با افزودن دکمه‌ی «رزرو نوبت» به منوی اصلی ربات، کاربران می‌توانند مستقیم نوبت رزرو کنند.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleAddBookingButtonToRoot}
+          className="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-95 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 shrink-0"
+        >
+          <Plus size={16} />
+          <span>افزودن دکمه‌ی رزرو به منوی اصلی</span>
+        </button>
+      </div>
+
       {/* --- TAB 1: BOOKINGS LIST --- */}
       {activeSubTab === 'bookings' && (
         <div className="space-y-4">
@@ -360,6 +411,12 @@ export const BookingPage: React.FC = () => {
                         <span>{b.userFirstName || 'کاربر تلگرام'}</span>
                         <span className="text-[10px] text-slate-400 font-mono">({b.userId})</span>
                       </h3>
+                      {b.contactInfo && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 mt-1">
+                          <Phone size={12} className="text-amber-400 shrink-0" />
+                          <span>تماس: <strong>{b.contactInfo}</strong></span>
+                        </div>
+                      )}
                     </div>
 
                     <span

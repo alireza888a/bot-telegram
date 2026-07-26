@@ -185,6 +185,7 @@ export interface Booking {
   serviceId: string;
   userId: string;
   userFirstName: string;
+  contactInfo?: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
   status: 'pending' | 'confirmed' | 'cancelled';

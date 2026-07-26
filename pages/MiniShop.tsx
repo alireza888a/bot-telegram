@@ -216,6 +216,8 @@ export const MiniShop: React.FC = () => {
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [slotsLoading, setSlotsLoading] = useState<boolean>(false);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [bookingName, setBookingName] = useState<string>('');
+  const [bookingPhone, setBookingPhone] = useState<string>('');
   const [bookingSubmitting, setBookingSubmitting] = useState<boolean>(false);
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState<string | null>(null);
 
@@ -500,6 +502,10 @@ export const MiniShop: React.FC = () => {
   // Submit booking
   const handleBookingSubmit = async () => {
     if (!selectedService || !selectedDate || !selectedTime) return;
+    if (!bookingName.trim() || !bookingPhone.trim()) {
+      alert('لطفاً نام و شماره تماس خود را وارد کنید.');
+      return;
+    }
     setBookingSubmitting(true);
     try {
       const initData = window.Telegram?.WebApp?.initData || '';
@@ -511,7 +517,8 @@ export const MiniShop: React.FC = () => {
           initData,
           serviceId: selectedService.id,
           date: selectedDate,
-          time: selectedTime
+          time: selectedTime,
+          contactInfo: `${bookingName.trim()} - ${bookingPhone.trim()}`
         })
       });
       const data = await res.json();
@@ -1352,6 +1359,8 @@ export const MiniShop: React.FC = () => {
                     setSelectedService(null);
                     setSelectedDate(null);
                     setSelectedTime(null);
+                    setBookingName('');
+                    setBookingPhone('');
                     setBookingSuccessMsg(null);
                   }}
                   className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-emerald-600/20"
@@ -1510,25 +1519,55 @@ export const MiniShop: React.FC = () => {
                   </div>
                 )}
 
-                {/* Step 3: Submit Button */}
+                {/* Step 3: Name & Contact Info + Submit */}
                 {selectedDate && selectedTime && (
-                  <button
-                    onClick={handleBookingSubmit}
-                    disabled={bookingSubmitting}
-                    className="w-full py-3 bg-gradient-to-l from-cyan-600 to-blue-600 hover:opacity-95 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-600/30 mt-4 active:scale-95 disabled:opacity-50"
-                  >
-                    {bookingSubmitting ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>در حال ثبت نوبت...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={16} />
-                        <span>ثبت نوبت برای {selectedDate} ساعت {selectedTime}</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="space-y-3 pt-3 border-t border-white/5 animate-fade-in">
+                    <label className="block text-xs font-bold text-slate-200">
+                      ۳. مشخصات و اطلاعات تماس:
+                    </label>
+
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">نام و نام خانوادگی *</label>
+                        <input
+                          type="text"
+                          value={bookingName}
+                          onChange={(e) => setBookingName(e.target.value)}
+                          placeholder="مثلاً: علی محمدی"
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-cyan-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">شماره تماس *</label>
+                        <input
+                          type="tel"
+                          value={bookingPhone}
+                          onChange={(e) => setBookingPhone(e.target.value)}
+                          placeholder="09123456789"
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-cyan-500 font-mono dir-ltr text-right"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleBookingSubmit}
+                      disabled={bookingSubmitting || !bookingName.trim() || !bookingPhone.trim()}
+                      className="w-full py-3 bg-gradient-to-l from-cyan-600 to-blue-600 hover:opacity-95 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-600/30 mt-4 active:scale-95 disabled:opacity-50"
+                    >
+                      {bookingSubmitting ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          <span>در حال ثبت نوبت...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} />
+                          <span>ثبت نوبت برای {selectedDate} ساعت {selectedTime}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
