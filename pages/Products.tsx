@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { Plus, Trash2, Edit, ShoppingBag, CheckCircle, X, DollarSign, Image as ImageIcon, ToggleLeft, ToggleRight, Check } from 'lucide-react';
+import { Plus, Trash2, Edit, ShoppingBag, CheckCircle, X, DollarSign, Image as ImageIcon, ToggleLeft, ToggleRight, Check, Zap } from 'lucide-react';
 import { Product } from '../types';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
@@ -205,6 +205,42 @@ export const Products: React.FC = () => {
     setProducts(products.map(p => p.id === product.id ? { ...p, active: !p.active } : p));
   };
 
+  const addShopButtonToRootMenu = () => {
+    try {
+      const saved = localStorage.getItem('kb_menus');
+      let menus = saved ? JSON.parse(saved) : {};
+
+      if (!menus['root']) {
+        alert('هنوز منوی اصلی (root) رو نساختی — اول برو دکمه‌ساز و منوی اصلی رو بساز.');
+        return;
+      }
+
+      const alreadyExists = menus['root'].rows?.some((r: any) =>
+        r.buttons?.some((b: any) => b.type === 'callback' && b.value === 'cart_shop')
+      );
+
+      if (alreadyExists) {
+        alert('این دکمه از قبل توی منوی اصلی هست.');
+        return;
+      }
+
+      const newButton = {
+        id: 'btn_' + Date.now(),
+        text: '🛍️ فروشگاه',
+        type: 'callback',
+        value: 'cart_shop'
+      };
+
+      menus['root'].rows = [...(menus['root'].rows || []), { id: 'row_' + Date.now(), buttons: [newButton] }];
+      localStorage.setItem('kb_menus', JSON.stringify(menus));
+      syncNow();
+      alert('✅ دکمه‌ی «فروشگاه» به منوی اصلی اضافه شد.');
+    } catch (e) {
+      console.error(e);
+      alert('خطا در تغییر منوهای کیبورد.');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-10">
       <div className="flex justify-between items-center">
@@ -227,6 +263,31 @@ export const Products: React.FC = () => {
         >
           <Plus size={18} />
           افزودن محصول جدید
+        </button>
+      </div>
+
+      {/* Bot Connection Card (🔌 اتصال به ربات) */}
+      <div className="bg-gradient-to-r from-blue-900/40 via-cyan-900/30 to-slate-900/60 border border-cyan-500/30 p-5 rounded-2xl shadow-xl backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+            <Zap size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>🔌 اتصال به ربات</span>
+            </h2>
+            <p className="text-xs text-slate-300 mt-0.5">
+              با افزودن دکمه‌ی «فروشگاه» به منوی اصلی ربات، کاربران می‌توانند مستقیم از محصولات دیدن کنند.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={addShopButtonToRootMenu}
+          className="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-95 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 shrink-0"
+        >
+          <Plus size={16} />
+          <span>افزودن دکمه‌ی فروشگاه به منوی اصلی</span>
         </button>
       </div>
 
