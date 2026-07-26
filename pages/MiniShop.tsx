@@ -5,6 +5,7 @@ import {
   Image as ImageIcon, Bell, X, Maximize2, ArrowRight, Calendar
 } from 'lucide-react';
 import { Product, MiniAppModule, Order, GalleryImage, BookableService } from '../types';
+import { getDisplayableImageUrl } from '../utils/image';
 
 declare global {
   interface Window {
@@ -71,11 +72,11 @@ const ProductImageSlider: React.FC<{ product: Product }> = ({ product }) => {
 
   if (images.length === 1) {
     const img = images[0];
-    const isUrl = img.startsWith('http') || img.startsWith('blob:') || img.startsWith('data:');
+    const displayUrl = getDisplayableImageUrl(img);
     return (
       <div className="w-full aspect-[4/3] rounded-xl bg-black/40 border border-white/5 overflow-hidden flex items-center justify-center relative mb-3">
-        {isUrl ? (
-          <img src={img} alt={product.name} className="w-full h-full object-cover" />
+        {displayUrl ? (
+          <img src={displayUrl} alt={product.name} className="w-full h-full object-cover" />
         ) : (
           <div className="flex flex-col items-center justify-center p-2 text-center text-blue-400 gap-1">
             <ImageIcon size={22} />
@@ -102,12 +103,12 @@ const ProductImageSlider: React.FC<{ product: Product }> = ({ product }) => {
   };
 
   const currentImg = images[activeIdx] || images[0];
-  const isUrl = currentImg.startsWith('http') || currentImg.startsWith('blob:') || currentImg.startsWith('data:');
+  const displayUrl = getDisplayableImageUrl(currentImg);
 
   return (
     <div className="w-full aspect-[4/3] rounded-xl bg-black/40 border border-white/5 overflow-hidden relative mb-3 group">
-      {isUrl ? (
-        <img src={currentImg} alt={`${product.name} - ${activeIdx + 1}`} className="w-full h-full object-cover transition-all duration-300" />
+      {displayUrl ? (
+        <img src={displayUrl} alt={`${product.name} - ${activeIdx + 1}`} className="w-full h-full object-cover transition-all duration-300" />
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center text-blue-400 gap-1">
           <ImageIcon size={22} />
@@ -1201,7 +1202,7 @@ export const MiniShop: React.FC = () => {
                     className="bg-[#151c2c]/80 border border-white/10 hover:border-purple-500/50 rounded-2xl p-2 cursor-pointer transition-all hover:scale-[1.02] backdrop-blur-sm group"
                   >
                     <div className="w-full h-36 rounded-xl bg-black/40 overflow-hidden relative flex items-center justify-center">
-                      <img src={img.imageUrl} alt={img.caption || 'عکس گالری'} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      <img src={getDisplayableImageUrl(img.imageUrl) || img.imageUrl} alt={img.caption || 'عکس گالری'} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                       <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
                       <div className="absolute top-2 left-2 p-1.5 bg-black/60 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md">
                         <Maximize2 size={12} />
@@ -1231,7 +1232,7 @@ export const MiniShop: React.FC = () => {
 
             <div className="flex-1 flex items-center justify-center max-w-full max-h-[75vh] my-auto">
               <img
-                src={lightboxImage.imageUrl}
+                src={getDisplayableImageUrl(lightboxImage.imageUrl) || lightboxImage.imageUrl}
                 alt={lightboxImage.caption || 'نمای کامل عکس'}
                 className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl"
               />

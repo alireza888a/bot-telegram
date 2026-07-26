@@ -6,6 +6,7 @@ import { InlineRow, InlineButton, ButtonActionType, MediaAttachment, MenuPage, F
 import { suggestButtonLabels } from '../services/geminiService';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
+import { getDisplayableImageUrl } from '../utils/image';
 
 const FormCheckboxSimulator: React.FC<{ options: string[]; onSubmit: (selected: string[]) => void }> = ({ options, onSubmit }) => {
     const [selected, setSelected] = useState<string[]>([]);
@@ -1132,8 +1133,8 @@ export const KeyboardBuilder: React.FC = () => {
                                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
                                       {prodImages.map((img, idx) => (
                                           <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-900 border border-white/10 shrink-0 group">
-                                              {img.startsWith('http') || img.startsWith('blob:') || img.startsWith('data:') ? (
-                                                  <img src={img} alt={`عکس ${idx + 1}`} className="w-full h-full object-cover" />
+                                              {getDisplayableImageUrl(img) ? (
+                                                  <img src={getDisplayableImageUrl(img) || img} alt={`عکس ${idx + 1}`} className="w-full h-full object-cover" />
                                               ) : (
                                                   <div className="w-full h-full flex flex-col items-center justify-center p-0.5 text-center bg-blue-500/10 text-blue-400 text-[8px] font-mono">
                                                       <ImageIcon size={12} />
@@ -2058,8 +2059,8 @@ export const KeyboardBuilder: React.FC = () => {
                                            >
                                                <div className="flex items-center gap-3">
                                                    <div className="w-10 h-10 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                                                       {prod.imageUrl && prod.imageUrl.trim() !== '' && (prod.imageUrl.startsWith('http') || prod.imageUrl.startsWith('blob:') || prod.imageUrl.startsWith('data:')) ? (
-                                                           <img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-cover" />
+                                                       {getDisplayableImageUrl(prod.imageUrl) ? (
+                                                           <img src={getDisplayableImageUrl(prod.imageUrl)!} alt={prod.name} className="w-full h-full object-cover" />
                                                        ) : (
                                                            <ShoppingBag size={18} className="text-blue-400" />
                                                        )}

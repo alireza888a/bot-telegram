@@ -8,6 +8,7 @@ import {
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
 import { MiniAppModule, GalleryImage } from '../types';
+import { getDisplayableImageUrl } from '../utils/image';
 
 export const Settings: React.FC = () => {
     const [token, setToken] = useState(localStorage.getItem('bot_token') || '');
@@ -801,7 +802,14 @@ export const Settings: React.FC = () => {
                             {galleryImages.map((img) => (
                                 <div key={img.id} className="bg-black/30 border border-white/10 rounded-xl p-3 flex flex-col gap-2.5">
                                     <div className="relative w-full h-36 rounded-lg bg-black/40 overflow-hidden border border-white/5 flex items-center justify-center">
-                                        <img src={img.imageUrl} alt={img.caption || 'گالری'} className="w-full h-full object-cover" />
+                                        {getDisplayableImageUrl(img.imageUrl) ? (
+                                            <img src={getDisplayableImageUrl(img.imageUrl)!} alt={img.caption || 'گالری'} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-slate-500 gap-1">
+                                                <ImageIcon size={24} />
+                                                <span className="text-[10px] text-slate-400">تصویر غیرقابل نمایش</span>
+                                            </div>
+                                        )}
                                         <button 
                                             onClick={() => handleDeleteGalleryImage(img.id)}
                                             className="absolute top-2 left-2 p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors shadow-md"

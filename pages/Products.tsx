@@ -4,6 +4,7 @@ import { Plus, Trash2, Edit, ShoppingBag, CheckCircle, X, DollarSign, Image as I
 import { Product } from '../types';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
+import { getDisplayableImageUrl } from '../utils/image';
 
 export const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(() => {
@@ -250,27 +251,34 @@ export const Products: React.FC = () => {
               <div>
                 {/* Product Image */}
                 <div className="relative h-48 -mx-6 -mt-6 mb-4 bg-slate-900/40 border-b dark:border-white/5 border-black/5 flex items-center justify-center p-4 overflow-hidden text-center">
-                  {product.imageUrl && product.imageUrl.trim() !== '' ? (
-                    (!product.imageUrl.trim().startsWith('http') && !product.imageUrl.trim().startsWith('blob:') && !product.imageUrl.trim().startsWith('data:')) ? (
-                      <div className="flex flex-col items-center gap-2 text-blue-400 p-4">
-                        <ImageIcon size={32} className="animate-pulse" />
-                        <span className="text-xs font-medium leading-relaxed">📷 عکس آپلودشده (فقط توی تلگرام قابل مشاهده)</span>
-                        <span className="text-[10px] text-slate-500 font-mono break-all line-clamp-1">{product.imageUrl}</span>
+                  {(() => {
+                    const displayUrl = getDisplayableImageUrl(product.imageUrl);
+                    if (displayUrl) {
+                      return (
+                        <img
+                          src={displayUrl}
+                          alt={product.name}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      );
+                    }
+                    if (product.imageUrl && product.imageUrl.trim() !== '') {
+                      return (
+                        <div className="flex flex-col items-center gap-2 text-blue-400 p-4">
+                          <ImageIcon size={32} className="animate-pulse" />
+                          <span className="text-xs font-medium leading-relaxed">📷 عکس آپلودشده (کد لایسنس برای دریافت عکس یافت نشد)</span>
+                          <span className="text-[10px] text-slate-500 font-mono break-all line-clamp-1">{product.imageUrl}</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="flex flex-col items-center gap-2 text-slate-500">
+                        <ImageIcon size={36} />
+                        <span className="text-xs">بدون تصویر</span>
                       </div>
-                    ) : (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    )
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-slate-500">
-                      <ImageIcon size={36} />
-                      <span className="text-xs">بدون تصویر</span>
-                    </div>
-                  )}
+                    );
+                  })()}
                   {/* Status Badge */}
                   <span
                     className={`absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-bold ${
@@ -407,31 +415,34 @@ export const Products: React.FC = () => {
                   {/* Thumbnails Row */}
                   {imageUrls.length > 0 && (
                     <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1 custom-scrollbar">
-                      {imageUrls.map((img, idx) => (
-                        <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/10 shrink-0 group">
-                          {img.startsWith('http') || img.startsWith('blob:') || img.startsWith('data:') ? (
-                            <img src={img} alt={`عکس ${idx + 1}`} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center p-1 text-center bg-blue-500/10 text-blue-400 text-[9px] font-mono">
-                              <ImageIcon size={14} />
-                              <span className="line-clamp-1">{img}</span>
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(idx)}
-                            className="absolute top-0.5 right-0.5 bg-red-600/80 hover:bg-red-600 text-white p-1 rounded-full transition-all shadow-md"
-                            title="حذف عکس"
-                          >
-                            <X size={12} />
-                          </button>
-                          {idx === 0 && (
-                            <span className="absolute bottom-0 inset-x-0 bg-blue-600/80 text-[8px] text-white text-center py-0.5 font-bold">
-                              کاور اصلی
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                      {imageUrls.map((img, idx) => {
+                        const displayUrl = getDisplayableImageUrl(img);
+                        return (
+                          <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/10 shrink-0 group">
+                            {displayUrl ? (
+                              <img src={displayUrl} alt={`عکس ${idx + 1}`} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center p-1 text-center bg-blue-500/10 text-blue-400 text-[9px] font-mono">
+                                <ImageIcon size={14} />
+                                <span className="line-clamp-1">{img}</span>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(idx)}
+                              className="absolute top-0.5 right-0.5 bg-red-600/80 hover:bg-red-600 text-white p-1 rounded-full transition-all shadow-md"
+                              title="حذف عکس"
+                            >
+                              <X size={12} />
+                            </button>
+                            {idx === 0 && (
+                              <span className="absolute bottom-0 inset-x-0 bg-blue-600/80 text-[8px] text-white text-center py-0.5 font-bold">
+                                کاور اصلی
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
