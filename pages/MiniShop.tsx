@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShoppingBag, Plus, Minus, Check, AlertTriangle, Loader2, Store, 
-  Package, MessageSquare, FileText, Send, Clock, CheckCircle2, XCircle, RefreshCw
+  Package, MessageSquare, FileText, Send, Clock, CheckCircle2, XCircle, RefreshCw,
+  Image as ImageIcon, Bell, X, Maximize2
 } from 'lucide-react';
-import { Product, MiniAppModule, Order } from '../types';
+import { Product, MiniAppModule, Order, GalleryImage } from '../types';
 
 declare global {
   interface Window {
@@ -19,6 +20,18 @@ declare global {
       };
     };
   }
+}
+
+interface AnnouncementMedia {
+  type: 'image' | 'video' | 'audio';
+  url: string;
+}
+
+interface Announcement {
+  id: string;
+  content: string;
+  mediaFiles?: AnnouncementMedia[];
+  createdAt: number | string;
 }
 
 export const MiniShop: React.FC = () => {
@@ -52,6 +65,17 @@ export const MiniShop: React.FC = () => {
   const [supportText, setSupportText] = useState<string>('');
   const [supportSending, setSupportSending] = useState<boolean>(false);
   const [supportSuccess, setSupportSuccess] = useState<boolean>(false);
+
+  // Gallery state
+  const [galleryList, setGalleryList] = useState<GalleryImage[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<GalleryImage | null>(null);
+
+  // Announcements state
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState<boolean>(false);
+  const [announcementsError, setAnnouncementsError] = useState<string | null>(null);
 
   // Extract license code from query string
   const urlParams = new URLSearchParams(window.location.search);
@@ -144,10 +168,76 @@ export const MiniShop: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (activeTab === 'orders') {
-      fetchMyOrders();
+  // Fetch gallery images
+  const fetchGallery = async () => {
+    if (!code) return;
+    setGalleryLoading(true);
+    setGalleryError(null);
+    try {
+      const res = await fetch(`https://corepanel-api.tajikr450.workers.dev/api/shop/${encodeURIComponent(code)}/gallery`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.gallery)) {
+        setGalleryList(data.gallery);
+      } else {
+        const localGallery = JSON.parse(localStorage.getItem('gallery_images') || '[]');
+        setGalleryList(localGallery);
+      }
+    } catch (err) {
+      console.error('Fetch gallery error:', err);
+      try {
+        const localGallery = JSON.parse(localStorage.getItem('gallery_images') || '[]');
+        setGalleryList(localGallery);
+      } catch {
+        setGalleryError('خطا در دریافت تصاویر گالری.');
+      }
+    } finally {
+      setGalleryLoading(false);
     }
+  };
+
+  // Fetch announcements
+  const fetchAnnouncements = async () => {
+    if (!code) return;
+    setAnnouncementsLoading(true);
+    setAnnouncementsError(null);
+    try {
+      const res = await fetch(`https://corepanel-api.tajikr450.workers.dev/api/shop/${encodeURIComponent(code)}/announcements`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.announcements)) {
+        setAnnouncements(data.announcements);
+      } else {
+        const localQueue = JSON.parse(localStorage.getItem('channel_queue') || '[]');
+        const mapped = localQueue.map((item: any) => ({
+          id: item.id,
+          content: item.content || '',
+          mediaFiles: item.mediaFiles || (item.hasMedia ? [{ type: item.mediaType || 'image', url: '' }] : []),
+          createdAt: item.createdAt || Date.now()
+        }));
+        setAnnouncements(mapped);
+      }
+    } catch (err) {
+      console.error('Fetch announcements error:', err);
+      try {
+        const localQueue = JSON.parse(localStorage.getItem('channel_queue') || '[]');
+        const mapped = localQueue.map((item: any) => ({
+          id: item.id,
+          content: item.content || '',
+          mediaFiles: item.mediaFiles || [],
+          createdAt: item.createdAt || Date.now()
+        }));
+        setAnnouncements(mapped);
+      } catch {
+        setAnnouncementsError('خطا در دریافت اعلانات.');
+      }
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'orders') fetchMyOrders();
+    if (activeTab === 'gallery') fetchGallery();
+    if (activeTab === 'announcements') fetchAnnouncements();
   }, [activeTab, code]);
 
   // Quantity controls
@@ -219,6 +309,24 @@ export const MiniShop: React.FC = () => {
     }
   };
 
+  // Helper for relative Iranian date format
+  const formatRelativeTime = (timestamp: number | string) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return String(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return 'همین الان';
+    if (diffMinutes < 60) return `${diffMinutes.toLocaleString('fa-IR')} دقیقه پیش`;
+    if (diffHours < 24) return `${diffHours.toLocaleString('fa-IR')} ساعت پیش`;
+    if (diffDays < 7) return `${diffDays.toLocaleString('fa-IR')} روز پیش`;
+    return date.toLocaleDateString('fa-IR');
+  };
+
   // Categories list
   const categories = ['همه', ...Array.from(new Set(products.map(p => (p.category || '').trim() || 'عمومی')))];
 
@@ -245,6 +353,8 @@ export const MiniShop: React.FC = () => {
               {activeTab === 'orders' && 'سوابق و پیگیری سفارش‌های قبلی'}
               {activeTab === 'support' && 'ارتباط و ارسال تیکت پشتیبانی'}
               {activeTab === 'forms' && 'فرم‌های آنلاین'}
+              {activeTab === 'gallery' && 'گالری تصاویر و نمونه‌کارها'}
+              {activeTab === 'announcements' && 'اطلاعیه‌ها و اخبار جدید'}
             </p>
           </div>
         </div>
@@ -549,6 +659,170 @@ export const MiniShop: React.FC = () => {
           </div>
         )}
 
+        {/* --- TAB 5: GALLERY --- */}
+        {activeTab === 'gallery' && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <ImageIcon size={18} className="text-purple-400" />
+                <span>گالری تصاویر</span>
+              </h2>
+              <button 
+                onClick={fetchGallery} 
+                disabled={galleryLoading}
+                className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white text-xs flex items-center gap-1 transition-colors"
+              >
+                <RefreshCw size={13} className={galleryLoading ? 'animate-spin' : ''} />
+                <span>بروزرسانی</span>
+              </button>
+            </div>
+
+            {galleryLoading ? (
+              <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 space-y-3">
+                <Loader2 size={32} className="text-purple-500 animate-spin" />
+                <p className="text-xs text-slate-400">در حال دریافت تصاویر گالری...</p>
+              </div>
+            ) : galleryError ? (
+              <div className="p-6 rounded-2xl bg-red-500/10 border border-red-500/20 text-center space-y-2">
+                <AlertTriangle size={32} className="text-red-400 mx-auto" />
+                <p className="text-xs text-red-300">{galleryError}</p>
+              </div>
+            ) : galleryList.length === 0 ? (
+              <div className="p-8 rounded-3xl bg-white/5 border border-white/10 text-center space-y-3 my-8">
+                <ImageIcon size={44} className="text-slate-600 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-300">تصویری یافت نشد</h3>
+                <p className="text-xs text-slate-400">هنوز تصویری در گالری ثبت نشده است.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {galleryList.map((img) => (
+                  <div
+                    key={img.id}
+                    onClick={() => setLightboxImage(img)}
+                    className="bg-[#151c2c]/80 border border-white/10 hover:border-purple-500/50 rounded-2xl p-2 cursor-pointer transition-all hover:scale-[1.02] backdrop-blur-sm group"
+                  >
+                    <div className="w-full h-36 rounded-xl bg-black/40 overflow-hidden relative flex items-center justify-center">
+                      <img src={img.imageUrl} alt={img.caption || 'عکس گالری'} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+                      <div className="absolute top-2 left-2 p-1.5 bg-black/60 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md">
+                        <Maximize2 size={12} />
+                      </div>
+                    </div>
+                    {img.caption && (
+                      <p className="text-[11px] text-slate-300 mt-2 px-1 line-clamp-2 leading-relaxed">
+                        {img.caption}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lightbox Modal for Gallery */}
+        {lightboxImage && (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col items-center justify-between p-4 animate-fade-in">
+            <button
+              onClick={() => setLightboxImage(null)}
+              className="self-end p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex-1 flex items-center justify-center max-w-full max-h-[75vh] my-auto">
+              <img
+                src={lightboxImage.imageUrl}
+                alt={lightboxImage.caption || 'نمای کامل عکس'}
+                className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl"
+              />
+            </div>
+
+            {lightboxImage.caption && (
+              <div className="bg-[#151c2c]/90 border border-white/10 rounded-2xl p-4 text-center max-w-lg w-full mb-4">
+                <p className="text-xs text-slate-200 leading-relaxed">{lightboxImage.caption}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- TAB 6: ANNOUNCEMENTS --- */}
+        {activeTab === 'announcements' && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <Bell size={18} className="text-amber-400" />
+                <span>اعلانات و اخبار</span>
+              </h2>
+              <button 
+                onClick={fetchAnnouncements} 
+                disabled={announcementsLoading}
+                className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white text-xs flex items-center gap-1 transition-colors"
+              >
+                <RefreshCw size={13} className={announcementsLoading ? 'animate-spin' : ''} />
+                <span>بروزرسانی</span>
+              </button>
+            </div>
+
+            {announcementsLoading ? (
+              <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 space-y-3">
+                <Loader2 size={32} className="text-amber-500 animate-spin" />
+                <p className="text-xs text-slate-400">در حال دریافت اعلانات...</p>
+              </div>
+            ) : announcementsError ? (
+              <div className="p-6 rounded-2xl bg-red-500/10 border border-red-500/20 text-center space-y-2">
+                <AlertTriangle size={32} className="text-red-400 mx-auto" />
+                <p className="text-xs text-red-300">{announcementsError}</p>
+              </div>
+            ) : announcements.length === 0 ? (
+              <div className="p-8 rounded-3xl bg-white/5 border border-white/10 text-center space-y-3 my-8">
+                <Bell size={44} className="text-slate-600 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-300">اطلاعیه‌ای وجود ندارد</h3>
+                <p className="text-xs text-slate-400">هنوز هیچ اطلاعیه‌ای منتشر نشده است.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {announcements.map((item) => (
+                  <div key={item.id} className="bg-[#151c2c]/80 border border-white/10 rounded-2xl p-4 space-y-3 backdrop-blur-sm shadow-md">
+                    {/* Media attachments */}
+                    {item.mediaFiles && item.mediaFiles.length > 0 && (
+                      <div className="space-y-2">
+                        {item.mediaFiles.map((media, mIdx) => (
+                          <div key={mIdx} className="rounded-xl overflow-hidden bg-black/40 border border-white/5 max-h-72 flex items-center justify-center">
+                            {media.type === 'video' ? (
+                              <video src={media.url} controls className="w-full max-h-72 object-contain" />
+                            ) : media.type === 'audio' ? (
+                              <audio src={media.url} controls className="w-full p-2" />
+                            ) : (
+                              <img src={media.url} alt="اطلاعیه" className="w-full max-h-72 object-cover" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Announcement text content */}
+                    {item.content && (
+                      <div 
+                        className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans"
+                        dangerouslySetInnerHTML={{ __html: item.content }}
+                      />
+                    )}
+
+                    {/* Footer Date */}
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Clock size={11} className="text-amber-400" />
+                        <span>{formatRelativeTime(item.createdAt)}</span>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
 
       {/* Sticky Bottom Bar for Shop Checkout (Only when shop tab is active & items > 0) */}
@@ -630,6 +904,34 @@ export const MiniShop: React.FC = () => {
               >
                 <FileText size={18} className={activeTab === 'forms' ? 'scale-110' : ''} />
                 <span className="text-[10px] mt-1">فرم‌ها</span>
+              </button>
+            )}
+
+            {enabledModules.includes('gallery') && (
+              <button
+                onClick={() => setActiveTab('gallery')}
+                className={`flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
+                  activeTab === 'gallery' 
+                    ? 'text-blue-400 font-bold bg-blue-600/10' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <ImageIcon size={18} className={activeTab === 'gallery' ? 'scale-110' : ''} />
+                <span className="text-[10px] mt-1">گالری</span>
+              </button>
+            )}
+
+            {enabledModules.includes('announcements') && (
+              <button
+                onClick={() => setActiveTab('announcements')}
+                className={`flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
+                  activeTab === 'announcements' 
+                    ? 'text-blue-400 font-bold bg-blue-600/10' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Bell size={18} className={activeTab === 'announcements' ? 'scale-110' : ''} />
+                <span className="text-[10px] mt-1">اعلانات</span>
               </button>
             )}
           </div>

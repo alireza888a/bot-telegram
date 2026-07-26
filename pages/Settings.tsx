@@ -3,11 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
     Save, Database, Download, Upload, RefreshCcw, Server, 
-    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard, UserCog, MessageSquareCode, AppWindow, LayoutGrid
+    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard, UserCog, MessageSquareCode, AppWindow, LayoutGrid, Image as ImageIcon, Plus, Trash2, Loader2, Bell
 } from 'lucide-react';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
-import { MiniAppModule } from '../types';
+import { MiniAppModule, GalleryImage } from '../types';
 
 export const Settings: React.FC = () => {
     const [token, setToken] = useState(localStorage.getItem('bot_token') || '');
@@ -38,6 +38,19 @@ export const Settings: React.FC = () => {
         } catch {}
         return ['shop'];
     });
+
+    // Gallery Images State
+    const [galleryImages, setGalleryImages] = useState<GalleryImage[]>(() => {
+        try {
+            const saved = localStorage.getItem('gallery_images');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) return parsed;
+            }
+        } catch {}
+        return [];
+    });
+    const [isUploadingGallery, setIsUploadingGallery] = useState(false);
 
     const [isCheckingDb, setIsCheckingDb] = useState(false);
     const [dbStatus, setDbStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -92,6 +105,11 @@ export const Settings: React.FC = () => {
         syncNow();
     }, [miniappModules]);
 
+    useEffect(() => {
+        localStorage.setItem('gallery_images', JSON.stringify(galleryImages));
+        syncNow();
+    }, [galleryImages]);
+
     const toggleMiniAppModule = (mod: MiniAppModule) => {
         setMiniappModules(prev => {
             if (prev.includes(mod)) {
@@ -101,6 +119,51 @@ export const Settings: React.FC = () => {
                 return [...prev, mod];
             }
         });
+    };
+
+    const handleAddGalleryImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setIsUploadingGallery(true);
+        try {
+            let imageUrl = '';
+            if (token && dbChannel) {
+                const uploadedFileId = await telegramService.uploadToDb(token, dbChannel, file, 'image');
+                if (uploadedFileId) {
+                    imageUrl = uploadedFileId;
+                }
+            }
+            if (!imageUrl) {
+                // Read as base64 data URL for local storage persistence if no DB channel
+                const reader = new FileReader();
+                imageUrl = await new Promise<string>((resolve) => {
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.readAsDataURL(file);
+                });
+            }
+            const newImg: GalleryImage = {
+                id: Date.now().toString(),
+                imageUrl,
+                caption: ''
+            };
+            setGalleryImages(prev => [newImg, ...prev]);
+            setToast({ message: 'عکس جدید با موفقیت به گالری اضافه شد', type: 'success' });
+        } catch (err) {
+            console.error('Gallery image upload failed:', err);
+            setToast({ message: 'خطا در آپلود عکس گالری', type: 'error' });
+        } finally {
+            setIsUploadingGallery(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleUpdateGalleryCaption = (id: string, caption: string) => {
+        setGalleryImages(prev => prev.map(img => img.id === id ? { ...img, caption } : img));
+    };
+
+    const handleDeleteGalleryImage = (id: string) => {
+        setGalleryImages(prev => prev.filter(img => img.id !== id));
+        setToast({ message: 'عکس از گالری حذف شد', type: 'success' });
     };
 
     const getKbMenus = (): Record<string, { id?: string; title?: string; content?: string }> => {
@@ -668,7 +731,96 @@ export const Settings: React.FC = () => {
                             />
                             <span className="text-sm font-bold">📝 فرم‌ها</span>
                         </label>
+
+                        <label 
+                            onClick={() => toggleMiniAppModule('gallery')}
+                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                miniappModules.includes('gallery') 
+                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
+                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <input 
+                                type="checkbox" 
+                                checked={miniappModules.includes('gallery')}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
+                            />
+                            <span className="text-sm font-bold">🖼 گالری</span>
+                        </label>
+
+                        <label 
+                            onClick={() => toggleMiniAppModule('announcements')}
+                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                miniappModules.includes('announcements') 
+                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
+                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <input 
+                                type="checkbox" 
+                                checked={miniappModules.includes('announcements')}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
+                            />
+                            <span className="text-sm font-bold">🔔 اعلانات</span>
+                        </label>
                     </div>
+                </GlassCard>
+
+                {/* 7. GALLERY MANAGEMENT */}
+                <GlassCard className="border-t-4 border-t-purple-500">
+                    <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            <ImageIcon className="text-purple-400"/>
+                            <h3 className="font-bold text-lg dark:text-white text-slate-800">مدیریت گالری تصاویر (Mini App)</h3>
+                        </div>
+                        <label className={`cursor-pointer px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-purple-600/20 active:scale-95 ${isUploadingGallery ? 'opacity-50 pointer-events-none' : ''}`}>
+                            {isUploadingGallery ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                            <span>افزودن عکس جدید</span>
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleAddGalleryImage} 
+                                className="hidden" 
+                                disabled={isUploadingGallery}
+                            />
+                        </label>
+                    </div>
+
+                    <p className="text-xs text-slate-400 mb-5 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
+                        تصاویری که اینجا اضافه می‌کنی در تب «گالری» Mini App به خریداران نمایش داده میشه.
+                    </p>
+
+                    {galleryImages.length === 0 ? (
+                        <div className="text-center py-8 border-2 border-dashed border-white/10 rounded-2xl bg-black/20 text-slate-400 text-xs">
+                            هنوز تصویری به گالری اضافه نشده است. روی «افزودن عکس جدید» کلیک کنید.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            {galleryImages.map((img) => (
+                                <div key={img.id} className="bg-black/30 border border-white/10 rounded-xl p-3 flex flex-col gap-2.5">
+                                    <div className="relative w-full h-36 rounded-lg bg-black/40 overflow-hidden border border-white/5 flex items-center justify-center">
+                                        <img src={img.imageUrl} alt={img.caption || 'گالری'} className="w-full h-full object-cover" />
+                                        <button 
+                                            onClick={() => handleDeleteGalleryImage(img.id)}
+                                            className="absolute top-2 left-2 p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors shadow-md"
+                                            title="حذف عکس"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        value={img.caption || ''} 
+                                        onChange={(e) => handleUpdateGalleryCaption(img.id, e.target.value)}
+                                        placeholder="توضیح اختیاری برای این عکس..."
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </GlassCard>
             </div>
         </div>

@@ -159,7 +159,13 @@ export interface MediaFile {
     fileId?: string;
 }
 
-export type MiniAppModule = 'shop' | 'orders' | 'support' | 'forms';
+export type MiniAppModule = 'shop' | 'orders' | 'support' | 'forms' | 'gallery' | 'announcements';
+
+export interface GalleryImage {
+  id: string;
+  imageUrl: string; // file_id یا URL
+  caption?: string;
+}
 
 export interface MiniAppConfig {
   enabledModules: MiniAppModule[];
