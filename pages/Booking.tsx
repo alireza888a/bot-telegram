@@ -1,0 +1,695 @@
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, Plus, Trash2, Edit3, CheckCircle2, XCircle, RefreshCw, AlertTriangle, Loader2, Save, User, Tag } from 'lucide-react';
+import { BookableService, WorkingHours, Booking } from '../types';
+import { loadFromCloud, syncNow } from '../services/cloudSync';
+
+export const BookingPage: React.FC = () => {
+  const [activeSubTab, setActiveSubTab] = useState<'bookings' | 'services' | 'hours'>('bookings');
+
+  // License code
+  const [code, setCode] = useState<string>('');
+
+  // 1. Services state
+  const [services, setServices] = useState<BookableService[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('booking_services') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<BookableService | null>(null);
+  const [serviceName, setServiceName] = useState('');
+  const [serviceDuration, setServiceDuration] = useState<number>(30);
+  const [servicePrice, setServicePrice] = useState<string>('');
+  const [serviceActive, setServiceActive] = useState(true);
+
+  // 2. Working hours state
+  const defaultHours: WorkingHours = {
+    sat: { start: '09:00', end: '18:00' },
+    sun: { start: '09:00', end: '18:00' },
+    mon: { start: '09:00', end: '18:00' },
+    tue: { start: '09:00', end: '18:00' },
+    wed: { start: '09:00', end: '18:00' },
+    thu: { start: '09:00', end: '14:00' },
+    fri: null,
+  };
+
+  const [workingHours, setWorkingHours] = useState<WorkingHours>(() => {
+    try {
+      const saved = localStorage.getItem('booking_hours');
+      return saved ? JSON.parse(saved) : defaultHours;
+    } catch {
+      return defaultHours;
+    }
+  });
+  const [hoursSavedSuccess, setHoursSavedSuccess] = useState(false);
+
+  // 3. Bookings state
+  const [bookings, setBookings] = useState<Booking[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('bookings_cache') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+  const [isLoading, setIsLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const licenseStr = localStorage.getItem('license_cache') || '{}';
+      const license = JSON.parse(licenseStr);
+      if (license.code) setCode(license.code);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // Fetch bookings from cloud
+  const refreshBookings = async () => {
+    if (!code) return;
+    setIsLoading(true);
+    await loadFromCloud(code);
+    try {
+      const cached = JSON.parse(localStorage.getItem('bookings_cache') || '[]');
+      setBookings(cached);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (code) {
+      refreshBookings();
+    }
+  }, [code]);
+
+  // Service Handlers
+  const handleOpenServiceModal = (service?: BookableService) => {
+    if (service) {
+      setEditingService(service);
+      setServiceName(service.name);
+      setServiceDuration(service.durationMinutes);
+      setServicePrice(service.price ? String(service.price) : '');
+      setServiceActive(service.active);
+    } else {
+      setEditingService(null);
+      setServiceName('');
+      setServiceDuration(30);
+      setServicePrice('');
+      setServiceActive(true);
+    }
+    setIsServiceModalOpen(true);
+  };
+
+  const handleSaveService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!serviceName.trim()) return;
+
+    let updated: BookableService[];
+    if (editingService) {
+      updated = services.map(s => s.id === editingService.id ? {
+        ...s,
+        name: serviceName.trim(),
+        durationMinutes: Number(serviceDuration) || 30,
+        price: servicePrice ? Number(servicePrice) : undefined,
+        active: serviceActive
+      } : s);
+    } else {
+      const newSvc: BookableService = {
+        id: 'svc_' + Math.random().toString(36).substr(2, 9),
+        name: serviceName.trim(),
+        durationMinutes: Number(serviceDuration) || 30,
+        price: servicePrice ? Number(servicePrice) : undefined,
+        active: serviceActive
+      };
+      updated = [...services, newSvc];
+    }
+
+    setServices(updated);
+    localStorage.setItem('booking_services', JSON.stringify(updated));
+    syncNow();
+    setIsServiceModalOpen(false);
+  };
+
+  const handleDeleteService = (id: string) => {
+    if (!confirm('آیا از حذف این خدمت اطمینان دارید؟')) return;
+    const updated = services.filter(s => s.id !== id);
+    setServices(updated);
+    localStorage.setItem('booking_services', JSON.stringify(updated));
+    syncNow();
+  };
+
+  const handleToggleServiceActive = (id: string) => {
+    const updated = services.map(s => s.id === id ? { ...s, active: !s.active } : s);
+    setServices(updated);
+    localStorage.setItem('booking_services', JSON.stringify(updated));
+    syncNow();
+  };
+
+  // Working Hours Handlers
+  const daysList: { key: keyof WorkingHours; label: string }[] = [
+    { key: 'sat', label: 'شنبه' },
+    { key: 'sun', label: 'یکشنبه' },
+    { key: 'mon', label: 'دوشنبه' },
+    { key: 'tue', label: 'سه‌شنبه' },
+    { key: 'wed', label: 'چهارشنبه' },
+    { key: 'thu', label: 'پنج‌شنبه' },
+    { key: 'fri', label: 'جمعه' },
+  ];
+
+  const handleDayToggle = (day: keyof WorkingHours) => {
+    setWorkingHours(prev => {
+      const current = prev[day];
+      return {
+        ...prev,
+        [day]: current ? null : { start: '09:00', end: '18:00' }
+      };
+    });
+  };
+
+  const handleDayTimeChange = (day: keyof WorkingHours, field: 'start' | 'end', value: string) => {
+    setWorkingHours(prev => {
+      const current = prev[day] || { start: '09:00', end: '18:00' };
+      return {
+        ...prev,
+        [day]: { ...current, [field]: value }
+      };
+    });
+  };
+
+  const handleSaveWorkingHours = () => {
+    localStorage.setItem('booking_hours', JSON.stringify(workingHours));
+    syncNow();
+    setHoursSavedSuccess(true);
+    setTimeout(() => setHoursSavedSuccess(false), 3000);
+  };
+
+  // Booking action handlers
+  const handleConfirmBooking = async (bookingId: string) => {
+    if (!code) return;
+    setActionLoadingId(bookingId);
+    try {
+      const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/booking/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, bookingId })
+      });
+      const data = await res.json();
+      if (data.ok !== false) {
+        await refreshBookings();
+      } else {
+        alert(data.message || 'خطا در تایید نوبت');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('خطا در ارتباط با سرور');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleRejectBooking = async (bookingId: string) => {
+    if (!code) return;
+    if (!confirm('آیا از رد این نوبت اطمینان دارید؟')) return;
+    setActionLoadingId(bookingId);
+    try {
+      const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/booking/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, bookingId })
+      });
+      const data = await res.json();
+      if (data.ok !== false) {
+        await refreshBookings();
+      } else {
+        alert(data.message || 'خطا در رد نوبت');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('خطا در ارتباط با سرور');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const filteredBookings = bookings.filter(b => {
+    if (statusFilter === 'all') return true;
+    return b.status === statusFilter;
+  });
+
+  const getServiceName = (serviceId: string) => {
+    const found = services.find(s => s.id === serviceId);
+    return found ? found.name : 'خدمت عمومی';
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#1e293b]/60 backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+            <Calendar size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white">مدیریت نوبت‌دهی و رزرو</h1>
+            <p className="text-xs text-slate-400 mt-1">مدیریت خدمات قابل رزرو، ساعات کاری و بررسی نوبت‌های کاربران</p>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 bg-black/30 p-1.5 rounded-xl border border-white/5">
+          <button
+            onClick={() => setActiveSubTab('bookings')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              activeSubTab === 'bookings'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Clock size={16} />
+            <span>نوبت‌ها ({bookings.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('services')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              activeSubTab === 'services'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Tag size={16} />
+            <span>خدمات ({services.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('hours')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              activeSubTab === 'hours'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Calendar size={16} />
+            <span>ساعات کاری</span>
+          </button>
+        </div>
+      </div>
+
+      {/* --- TAB 1: BOOKINGS LIST --- */}
+      {activeSubTab === 'bookings' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4 bg-[#1e293b]/40 border border-white/10 p-4 rounded-xl">
+            {/* Status Filters */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+              {[
+                { id: 'all', label: 'همه نوبت‌ها' },
+                { id: 'pending', label: 'در انتظار تایید' },
+                { id: 'confirmed', label: 'تاییدشده' },
+                { id: 'cancelled', label: 'ردشده / لغوشده' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setStatusFilter(f.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 ${
+                    statusFilter === f.id
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                      : 'bg-white/5 text-slate-400 hover:text-white border border-white/5'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={refreshBookings}
+              disabled={isLoading}
+              className="px-3 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-medium border border-white/10 flex items-center gap-1.5 transition-all shrink-0 disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+              <span>بروزرسانی</span>
+            </button>
+          </div>
+
+          {isLoading && bookings.length === 0 ? (
+            <div className="p-12 text-center bg-[#1e293b]/30 border border-white/5 rounded-2xl space-y-3">
+              <Loader2 size={32} className="text-blue-500 animate-spin mx-auto" />
+              <p className="text-xs text-slate-400">در حال دریافت لیست نوبت‌ها...</p>
+            </div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="p-12 text-center bg-[#1e293b]/30 border border-white/5 rounded-2xl space-y-3">
+              <Calendar size={40} className="text-slate-600 mx-auto" />
+              <p className="text-sm font-medium text-slate-400">نوبتی در این بخش ثبت نشده است.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredBookings.map(b => (
+                <div
+                  key={b.id}
+                  className="bg-[#1e293b]/60 border border-white/10 rounded-2xl p-5 space-y-4 shadow-lg backdrop-blur-sm relative hover:border-white/20 transition-all"
+                >
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-mono">شناسه: {b.id}</span>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
+                        <User size={14} className="text-blue-400" />
+                        <span>{b.userFirstName || 'کاربر تلگرام'}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">({b.userId})</span>
+                      </h3>
+                    </div>
+
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                        b.status === 'confirmed'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : b.status === 'cancelled'
+                          ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}
+                    >
+                      {b.status === 'confirmed'
+                        ? 'تاییدشده'
+                        : b.status === 'cancelled'
+                        ? 'ردشده'
+                        : 'در انتظار تایید'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-xs text-slate-300 bg-black/20 p-3 rounded-xl border border-white/5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">عنوان خدمت:</span>
+                      <span className="font-bold text-white">{getServiceName(b.serviceId)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">تاریخ نوبت:</span>
+                      <span className="font-mono text-cyan-400 font-bold">{b.date}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">ساعت نوبت:</span>
+                      <span className="font-mono text-amber-400 font-bold">{b.time}</span>
+                    </div>
+                  </div>
+
+                  {b.status === 'pending' && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => handleConfirmBooking(b.id)}
+                        disabled={actionLoadingId === b.id}
+                        className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50"
+                      >
+                        {actionLoadingId === b.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle2 size={14} />
+                            <span>تأیید نوبت</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleRejectBooking(b.id)}
+                        disabled={actionLoadingId === b.id}
+                        className="flex-1 py-2 px-3 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        {actionLoadingId === b.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <>
+                            <XCircle size={14} />
+                            <span>رد نوبت</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- TAB 2: BOOKABLE SERVICES --- */}
+      {activeSubTab === 'services' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-[#1e293b]/40 border border-white/10 p-4 rounded-xl">
+            <div>
+              <h2 className="text-sm font-bold text-white">لیست خدمات قابل رزرو</h2>
+              <p className="text-xs text-slate-400">خدماتی که کاربران در Mini App می‌توانند انتخاب کنند</p>
+            </div>
+            <button
+              onClick={() => handleOpenServiceModal()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20"
+            >
+              <Plus size={16} />
+              <span>افزودن خدمت جدید</span>
+            </button>
+          </div>
+
+          {services.length === 0 ? (
+            <div className="p-12 text-center bg-[#1e293b]/30 border border-white/5 rounded-2xl space-y-3">
+              <Tag size={40} className="text-slate-600 mx-auto" />
+              <p className="text-sm font-medium text-slate-400">هیچ خدمتی تعریف نشده است.</p>
+              <button
+                onClick={() => handleOpenServiceModal()}
+                className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/30 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2"
+              >
+                <Plus size={14} />
+                <span>تعریف اولین خدمت</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {services.map(s => (
+                <div
+                  key={s.id}
+                  className={`bg-[#1e293b]/60 border rounded-2xl p-5 space-y-3 transition-all backdrop-blur-sm relative ${
+                    s.active ? 'border-white/10 hover:border-white/20' : 'border-red-500/20 opacity-70'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 border-b border-white/5 pb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-white">{s.name}</h3>
+                      <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-1">
+                        <Clock size={12} className="text-blue-400" />
+                        <span>مدت زمان: {s.durationMinutes} دقیقه</span>
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => handleToggleServiceActive(s.id)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+                        s.active
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                      }`}
+                    >
+                      {s.active ? 'فعال' : 'غیرفعال'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-300">
+                    <span className="text-slate-400">قیمت خدمت:</span>
+                    <span className="font-bold text-amber-400">
+                      {s.price ? `${s.price.toLocaleString('fa-IR')} تومان` : 'رایگان / توافقی'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/5">
+                    <button
+                      onClick={() => handleOpenServiceModal(s)}
+                      className="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl transition-colors border border-blue-500/20"
+                      title="ویرایش"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteService(s.id)}
+                      className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors border border-red-500/20"
+                      title="حذف"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- TAB 3: WORKING HOURS --- */}
+      {activeSubTab === 'hours' && (
+        <div className="bg-[#1e293b]/60 border border-white/10 rounded-2xl p-6 space-y-6 max-w-2xl mx-auto backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Clock size={18} className="text-cyan-400" />
+                <span>ساعات کاری هفتگی</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">تعیین زمان‌های باز و بسته بودن مجموعه‌ جهت زمان‌بندی نوبت‌ها</p>
+            </div>
+
+            <button
+              onClick={handleSaveWorkingHours}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-600/20"
+            >
+              <Save size={16} />
+              <span>ذخیره تنظیمات</span>
+            </button>
+          </div>
+
+          {hoursSavedSuccess && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs text-center font-medium animate-fade-in">
+              ✅ ساعات کاری با موفقیت ذخیره و همگام‌سازی شد.
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {daysList.map(({ key, label }) => {
+              const dayData = workingHours[key];
+              const isOpen = !!dayData;
+
+              return (
+                <div
+                  key={key}
+                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                    isOpen ? 'bg-black/20 border-white/10' : 'bg-black/40 border-white/5 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isOpen}
+                        onChange={() => handleDayToggle(key)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+
+                    <span className="text-xs font-bold text-white min-w-[70px]">{label}</span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        isOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                      }`}
+                    >
+                      {isOpen ? 'باز' : 'تعطیل'}
+                    </span>
+                  </div>
+
+                  {isOpen && dayData && (
+                    <div className="flex items-center gap-2 text-xs" dir="ltr">
+                      <input
+                        type="time"
+                        value={dayData.start}
+                        onChange={(e) => handleDayTimeChange(key, 'start', e.target.value)}
+                        className="bg-slate-900 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-500 font-mono"
+                      />
+                      <span className="text-slate-500">تا</span>
+                      <input
+                        type="time"
+                        value={dayData.end}
+                        onChange={(e) => handleDayTimeChange(key, 'end', e.target.value)}
+                        className="bg-slate-900 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-500 font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* --- SERVICE CREATE / EDIT MODAL --- */}
+      {isServiceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-[#1e293b] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">
+                {editingService ? 'ویرایش خدمت' : 'افزودن خدمت جدید'}
+              </h3>
+              <button
+                onClick={() => setIsServiceModalOpen(false)}
+                className="text-slate-400 hover:text-white text-xs font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveService} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs text-slate-300 font-medium mb-1.5">عنوان خدمت *</label>
+                <input
+                  type="text"
+                  value={serviceName}
+                  onChange={(e) => setServiceName(e.target.value)}
+                  placeholder="مثلاً: مشاوره تلفنی / اصلاح سر"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-300 font-medium mb-1.5">مدت زمان (دقیقه) *</label>
+                <input
+                  type="number"
+                  value={serviceDuration}
+                  onChange={(e) => setServiceDuration(Number(e.target.value))}
+                  placeholder="30"
+                  min="5"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-blue-500 font-mono"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-300 font-medium mb-1.5">قیمت (تومان - اختیاری)</label>
+                <input
+                  type="number"
+                  value={servicePrice}
+                  onChange={(e) => setServicePrice(e.target.value)}
+                  placeholder="مثلاً: 250000"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={serviceActive}
+                    onChange={(e) => setServiceActive(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 bg-slate-900 border-white/20"
+                  />
+                  <span className="text-xs text-white font-medium">خدمت فعال و قابل انتخاب باشد</span>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 pt-4 border-t border-white/5">
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20"
+                >
+                  ذخیره خدمت
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsServiceModalOpen(false)}
+                  className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium rounded-xl transition-colors border border-white/10"
+                >
+                  انصراف
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

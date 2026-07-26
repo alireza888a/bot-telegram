@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Menu, Home, Settings, Layers, Users, Command, Bell, Search, Moon, Sun, Megaphone, LogOut, Download, AlertTriangle, X, Cloud, UserCog, ShoppingBag, ShoppingCart, MessageCircle, HelpCircle, Zap } from 'lucide-react';
+import { Menu, Home, Settings, Layers, Users, Command, Bell, Search, Moon, Sun, Megaphone, LogOut, Download, AlertTriangle, X, Cloud, UserCog, ShoppingBag, ShoppingCart, MessageCircle, HelpCircle, Zap, Calendar } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -23,6 +23,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
     { id: 'users', label: 'کاربران ربات', icon: <UserCog size={20} /> },
     { id: 'products', label: 'محصولات', icon: <ShoppingBag size={20} /> },
     { id: 'orders', label: 'سفارش‌ها', icon: <ShoppingCart size={20} /> },
+    { id: 'booking', label: 'نوبت‌دهی', icon: <Calendar size={20} /> },
     { id: 'customer-tickets', label: 'تیکت‌های پشتیبانی', icon: <HelpCircle size={20} /> },
     { id: 'automations', label: 'قوانین خودکار', icon: <Zap size={20} /> },
     { id: 'support', label: 'پشتیبانی', icon: <MessageCircle size={20} /> },

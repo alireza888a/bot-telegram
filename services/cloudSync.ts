@@ -19,7 +19,8 @@ export const saveToCloud = async (code: string): Promise<boolean> => {
         admin_chat_id: localStorage.getItem('admin_chat_id'),
         support_chat_id: localStorage.getItem('support_chat_id'),
         post_confirm_menu_id: localStorage.getItem('post_confirm_menu_id'),
-        miniapp_modules: JSON.parse(localStorage.getItem('miniapp_modules') || '["shop"]')
+        miniapp_modules: JSON.parse(localStorage.getItem('miniapp_modules') || '["shop"]'),
+        booking_hours: JSON.parse(localStorage.getItem('booking_hours') || '{}')
       },
       data: {
         menus: JSON.parse(localStorage.getItem('kb_menus') || '{}'),
@@ -35,7 +36,8 @@ export const saveToCloud = async (code: string): Promise<boolean> => {
         orders: JSON.parse(localStorage.getItem('bot_orders') || '[]'),
         tickets: JSON.parse(localStorage.getItem('bot_tickets') || '[]'),
         automations: JSON.parse(localStorage.getItem('bot_automations') || '[]'),
-        gallery: JSON.parse(localStorage.getItem('gallery_images') || '[]')
+        gallery: JSON.parse(localStorage.getItem('gallery_images') || '[]'),
+        services: JSON.parse(localStorage.getItem('booking_services') || '[]')
       }
     };
 
@@ -83,6 +85,7 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
         if (json.config.support_chat_id) localStorage.setItem('support_chat_id', json.config.support_chat_id);
         if (json.config.post_confirm_menu_id) localStorage.setItem('post_confirm_menu_id', json.config.post_confirm_menu_id);
         if (json.config.miniapp_modules) localStorage.setItem('miniapp_modules', JSON.stringify(json.config.miniapp_modules));
+        if (json.config.booking_hours) localStorage.setItem('booking_hours', JSON.stringify(json.config.booking_hours));
       }
 
       // Restore Data
@@ -101,6 +104,8 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
         if (json.data.tickets) localStorage.setItem('bot_tickets', JSON.stringify(json.data.tickets));
         if (json.data.automations) localStorage.setItem('bot_automations', JSON.stringify(json.data.automations));
         if (json.data.gallery) localStorage.setItem('gallery_images', JSON.stringify(json.data.gallery));
+        if (json.data.services) localStorage.setItem('booking_services', JSON.stringify(json.data.services));
+        if (json.data.bookings) localStorage.setItem('bookings_cache', JSON.stringify(json.data.bookings));
       }
       return true;
     }

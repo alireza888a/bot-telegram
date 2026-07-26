@@ -160,7 +160,37 @@ export interface MediaFile {
     fileId?: string;
 }
 
-export type MiniAppModule = 'shop' | 'orders' | 'support' | 'forms' | 'gallery' | 'announcements';
+export type MiniAppModule = 'shop' | 'orders' | 'support' | 'forms' | 'gallery' | 'announcements' | 'booking';
+
+export interface BookableService {
+  id: string;
+  name: string;
+  durationMinutes: number;
+  price?: number;
+  active: boolean;
+}
+
+export interface WorkingHours {
+  sun?: { start: string; end: string } | null;
+  mon?: { start: string; end: string } | null;
+  tue?: { start: string; end: string } | null;
+  wed?: { start: string; end: string } | null;
+  thu?: { start: string; end: string } | null;
+  fri?: { start: string; end: string } | null;
+  sat?: { start: string; end: string } | null;
+}
+
+export interface Booking {
+  id: string; // BKG-XXXXXX
+  serviceId: string;
+  userId: string;
+  userFirstName: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  status: 'pending' | 'confirmed' | 'cancelled';
+  createdAt: number;
+  remindedAt: number | null;
+}
 
 export interface GalleryImage {
   id: string;
