@@ -177,6 +177,7 @@ export interface Product {
   price: number; // تومان
   description: string;
   imageUrl?: string;
+  imageUrls?: string[];
   active: boolean;
   category?: string;
   stock?: number;

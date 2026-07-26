@@ -22,6 +22,7 @@ export const Products: React.FC = () => {
   const [price, setPrice] = useState<number | ''>('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [active, setActive] = useState(true);
   const [category, setCategory] = useState('');
   const [postConfirmMenuId, setPostConfirmMenuId] = useState('');
@@ -44,11 +45,12 @@ export const Products: React.FC = () => {
   };
 
   const [isUploading, setIsUploading] = useState(false);
+  const [manualUrlInput, setManualUrlInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
       const token = localStorage.getItem('bot_token') || '';
       const dbChannel = localStorage.getItem('bot_db_channel') || '';
 
@@ -57,23 +59,58 @@ export const Products: React.FC = () => {
         return;
       }
 
+      if (imageUrls.length >= 10) {
+        alert('حداکثر ۱۰ عکس برای هر محصول می‌توانید آپلود کنید.');
+        return;
+      }
+
       setIsUploading(true);
+      const uploadedList: string[] = [];
       try {
-        const uploadedId = await telegramService.uploadToDb(token, dbChannel, file, 'image');
-        if (uploadedId) {
-          setImageUrl(uploadedId);
-          console.log(`Product image uploaded to DB. ID: ${uploadedId}`);
+        for (const file of files) {
+          if (imageUrls.length + uploadedList.length >= 10) break;
+          const uploadedId = await telegramService.uploadToDb(token, dbChannel, file, 'image');
+          if (uploadedId) {
+            uploadedList.push(uploadedId);
+          }
+        }
+        if (uploadedList.length > 0) {
+          setImageUrls(prev => {
+            const next = [...prev, ...uploadedList].slice(0, 10);
+            setImageUrl(next[0] || '');
+            return next;
+          });
+          console.log(`Product images uploaded to DB:`, uploadedList);
         } else {
-          alert('هشدار: آپلود در کانال دیتابیس ناموفق بود. لطفا بررسی کنید که ربات در کانال دیتابیس "ادمین" باشد و آیدی کانال صحیح وارد شده باشد (شروع با -100).');
+          alert('هشدار: آپلود در کانال دیتابیس ناموفق بود. لطفا بررسی کنید که ربات در کانال دیتابیس "ادمین" باشد.');
         }
       } catch (err) {
-        console.error('Failed to upload product image to DB channel', err);
-        alert('خطا در ارتباط با تلگرام برای آپلود فایل. لطفا اتصال اینترنت و VPN را بررسی کنید.');
+        console.error('Failed to upload product images to DB channel', err);
+        alert('خطا در ارتباط با تلگرام برای آپلود فایل.');
       } finally {
         setIsUploading(false);
         e.target.value = '';
       }
     }
+  };
+
+  const handleAddManualUrl = () => {
+    const trimmed = manualUrlInput.trim();
+    if (!trimmed) return;
+    if (imageUrls.length >= 10) {
+      alert('حداکثر ۱۰ عکس برای هر محصول می‌توانید آپلود کنید.');
+      return;
+    }
+    const next = [...imageUrls, trimmed].slice(0, 10);
+    setImageUrls(next);
+    setImageUrl(next[0] || '');
+    setManualUrlInput('');
+  };
+
+  const handleRemoveImage = (index: number) => {
+    const next = imageUrls.filter((_, i) => i !== index);
+    setImageUrls(next);
+    setImageUrl(next[0] || '');
   };
 
   useEffect(() => {
@@ -87,6 +124,8 @@ export const Products: React.FC = () => {
     setPrice('');
     setDescription('');
     setImageUrl('');
+    setImageUrls([]);
+    setManualUrlInput('');
     setActive(true);
     setCategory('');
     setPostConfirmMenuId('');
@@ -99,7 +138,12 @@ export const Products: React.FC = () => {
     setName(product.name);
     setPrice(product.price);
     setDescription(product.description);
-    setImageUrl(product.imageUrl || '');
+    const existingImgs = product.imageUrls && product.imageUrls.length > 0
+      ? product.imageUrls
+      : (product.imageUrl ? [product.imageUrl] : []);
+    setImageUrls(existingImgs);
+    setImageUrl(existingImgs[0] || '');
+    setManualUrlInput('');
     setActive(product.active);
     setCategory(product.category || '');
     setPostConfirmMenuId(product.post_confirm_menu_id || '');
@@ -114,6 +158,9 @@ export const Products: React.FC = () => {
       return;
     }
 
+    const finalImageUrls = imageUrls.length > 0 ? imageUrls : (imageUrl ? [imageUrl] : []);
+    const primaryImageUrl = finalImageUrls[0] || undefined;
+
     if (editingProduct) {
       // Edit existing
       setProducts(products.map(p => p.id === editingProduct.id ? {
@@ -121,7 +168,8 @@ export const Products: React.FC = () => {
         name,
         price: Number(price),
         description,
-        imageUrl: imageUrl || undefined,
+        imageUrl: primaryImageUrl,
+        imageUrls: finalImageUrls.length > 0 ? finalImageUrls : undefined,
         active,
         category: category.trim() || 'عمومی',
         post_confirm_menu_id: postConfirmMenuId || undefined,
@@ -134,7 +182,8 @@ export const Products: React.FC = () => {
         name,
         price: Number(price),
         description,
-        imageUrl: imageUrl || undefined,
+        imageUrl: primaryImageUrl,
+        imageUrls: finalImageUrls.length > 0 ? finalImageUrls : undefined,
         active,
         category: category.trim() || 'عمومی',
         post_confirm_menu_id: postConfirmMenuId || undefined,
@@ -236,6 +285,13 @@ export const Products: React.FC = () => {
                   <span className="absolute top-4 left-4 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                     {product.category || 'عمومی'}
                   </span>
+                  {/* Image count badge if > 1 */}
+                  {product.imageUrls && product.imageUrls.length > 1 && (
+                    <span className="absolute bottom-3 left-3 px-2 py-0.5 rounded-lg text-[10px] font-medium bg-black/60 text-white border border-white/10 backdrop-blur-sm flex items-center gap-1">
+                      <ImageIcon size={12} />
+                      {product.imageUrls.length} عکس
+                    </span>
+                  )}
                 </div>
 
                 {/* Product Metadata */}
@@ -342,12 +398,48 @@ export const Products: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">تصویر محصول (آپلود مستقیم یا آدرس اینترنتی)</label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs text-slate-400">تصاویر محصول (آپلود تا ۱۰ عکس)</label>
+                  <span className="text-[11px] text-blue-400 font-medium">{imageUrls.length} / ۱۰ عکس</span>
+                </div>
+                
                 <div className="space-y-3">
+                  {/* Thumbnails Row */}
+                  {imageUrls.length > 0 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1 custom-scrollbar">
+                      {imageUrls.map((img, idx) => (
+                        <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/10 shrink-0 group">
+                          {img.startsWith('http') || img.startsWith('blob:') || img.startsWith('data:') ? (
+                            <img src={img} alt={`عکس ${idx + 1}`} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center p-1 text-center bg-blue-500/10 text-blue-400 text-[9px] font-mono">
+                              <ImageIcon size={14} />
+                              <span className="line-clamp-1">{img}</span>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="absolute top-0.5 right-0.5 bg-red-600/80 hover:bg-red-600 text-white p-1 rounded-full transition-all shadow-md"
+                            title="حذف عکس"
+                          >
+                            <X size={12} />
+                          </button>
+                          {idx === 0 && (
+                            <span className="absolute bottom-0 inset-x-0 bg-blue-600/80 text-[8px] text-white text-center py-0.5 font-bold">
+                              کاور اصلی
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <input
                       type="file"
                       accept="image/*"
+                      multiple
                       ref={fileInputRef}
                       onChange={handleImageUpload}
                       className="hidden"
@@ -355,41 +447,36 @@ export const Products: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
+                      disabled={isUploading || imageUrls.length >= 10}
                       className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 border border-blue-500/20 transition-all text-sm font-medium flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {isUploading ? (
                         <span>⏳ در حال آپلود...</span>
                       ) : (
-                        <span>📤 آپلود عکس از گالری</span>
+                        <span>📤 آپلود عکس از گالری (چندتایی)</span>
                       )}
                     </button>
-                    {imageUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setImageUrl('')}
-                        className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-all flex items-center justify-center"
-                        title="حذف عکس"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
                   </div>
                   
-                  <input
-                    type="text"
-                    value={imageUrl}
-                    onChange={e => setImageUrl(e.target.value)}
-                    placeholder="یا آدرس عکس را اینجا وارد کنید: https://..."
-                    className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors text-right text-xs"
-                    dir="ltr"
-                  />
-                  {imageUrl && imageUrl.trim() !== '' && !imageUrl.trim().startsWith('http') && !imageUrl.trim().startsWith('blob:') && !imageUrl.trim().startsWith('data:') && (
-                    <p className="text-[10px] text-blue-400 flex items-center gap-1 bg-blue-500/5 p-2 rounded-lg border border-blue-500/10">
-                      <CheckCircle size={12} />
-                      <span>عکس با شناسه تلگرام با موفقیت تنظیم شد.</span>
-                    </p>
-                  )}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualUrlInput}
+                      onChange={e => setManualUrlInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddManualUrl(); } }}
+                      placeholder="یا آدرس عکس را وارد کنید: https://..."
+                      className="flex-1 bg-[#0f172a] border border-white/10 text-white rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 transition-colors text-right"
+                      dir="ltr"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddManualUrl}
+                      disabled={!manualUrlInput.trim() || imageUrls.length >= 10}
+                      className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium transition-all disabled:opacity-50"
+                    >
+                      افزودن
+                    </button>
+                  </div>
                 </div>
               </div>
 

@@ -107,6 +107,8 @@ export const KeyboardBuilder: React.FC = () => {
   const [prodDesc, setProdDesc] = useState('');
   const [prodCategory, setProdCategory] = useState('');
   const [prodImage, setProdImage] = useState('');
+  const [prodImages, setProdImages] = useState<string[]>([]);
+  const [prodManualUrl, setProdManualUrl] = useState('');
   const [prodPostConfirmMenuId, setProdPostConfirmMenuId] = useState('');
   const [prodPostOrderFormId, setProdPostOrderFormId] = useState('');
   const [isProdUploading, setIsProdUploading] = useState(false);
@@ -144,17 +146,32 @@ export const KeyboardBuilder: React.FC = () => {
   };
 
   const handleProdImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
       if (!token || !dbChannel) {
         alert('هشدار: کانال دیتابیس یا توکن ربات تنظیم نشده است.');
         return;
       }
+      if (prodImages.length >= 10) {
+        alert('حداکثر ۱۰ عکس برای هر محصول می‌توانید آپلود کنید.');
+        return;
+      }
       setIsProdUploading(true);
+      const uploadedList: string[] = [];
       try {
-        const uploadedId = await telegramService.uploadToDb(token, dbChannel, file, 'image');
-        if (uploadedId) {
-          setProdImage(uploadedId);
+        for (const file of files) {
+          if (prodImages.length + uploadedList.length >= 10) break;
+          const uploadedId = await telegramService.uploadToDb(token, dbChannel, file, 'image');
+          if (uploadedId) {
+            uploadedList.push(uploadedId);
+          }
+        }
+        if (uploadedList.length > 0) {
+          setProdImages(prev => {
+            const next = [...prev, ...uploadedList].slice(0, 10);
+            setProdImage(next[0] || '');
+            return next;
+          });
         } else {
           alert('هشدار: آپلود در کانال دیتابیس ناموفق بود.');
         }
@@ -167,19 +184,42 @@ export const KeyboardBuilder: React.FC = () => {
     }
   };
 
+  const handleAddProdManualUrl = () => {
+    const trimmed = prodManualUrl.trim();
+    if (!trimmed) return;
+    if (prodImages.length >= 10) {
+      alert('حداکثر ۱۰ عکس برای هر محصول می‌توانید آپلود کنید.');
+      return;
+    }
+    const next = [...prodImages, trimmed].slice(0, 10);
+    setProdImages(next);
+    setProdImage(next[0] || '');
+    setProdManualUrl('');
+  };
+
+  const handleRemoveProdImage = (index: number) => {
+    const next = prodImages.filter((_, i) => i !== index);
+    setProdImages(next);
+    setProdImage(next[0] || '');
+  };
+
   const handleQuickProductSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!prodName || prodPrice === '') {
       alert('لطفاً نام و قیمت محصول را وارد کنید.');
       return;
     }
+    const finalImgs = prodImages.length > 0 ? prodImages : (prodImage ? [prodImage] : []);
+    const primaryImg = finalImgs[0] || undefined;
+
     const newProd: Product = {
       id: 'prod_' + Math.random().toString(36).substr(2, 9),
       name: prodName,
       price: Number(prodPrice),
       description: prodDesc,
       category: prodCategory.trim() || 'عمومی',
-      imageUrl: prodImage || undefined,
+      imageUrl: primaryImg,
+      imageUrls: finalImgs.length > 0 ? finalImgs : undefined,
       active: true,
       post_confirm_menu_id: prodPostConfirmMenuId || undefined,
       post_order_form_id: prodPostOrderFormId || undefined
@@ -208,6 +248,8 @@ export const KeyboardBuilder: React.FC = () => {
     setProdDesc('');
     setProdCategory('');
     setProdImage('');
+    setProdImages([]);
+    setProdManualUrl('');
     setProdPostConfirmMenuId('');
     setProdPostOrderFormId('');
     setIsNewProductModalOpen(false);
@@ -1049,12 +1091,42 @@ export const KeyboardBuilder: React.FC = () => {
                       </div>
 
                       <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">تصویر محصول (آپلود مستقیم یا لینک)</label>
+                          <div className="flex justify-between items-center mb-1.5">
+                              <label className="block text-xs text-slate-400">تصاویر محصول (آپلود تا ۱۰ عکس)</label>
+                              <span className="text-[10px] text-blue-400 font-medium">{prodImages.length} / ۱۰ عکس</span>
+                          </div>
+                          
                           <div className="space-y-2">
+                              {/* Thumbnails Row */}
+                              {prodImages.length > 0 && (
+                                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                                      {prodImages.map((img, idx) => (
+                                          <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-900 border border-white/10 shrink-0 group">
+                                              {img.startsWith('http') || img.startsWith('blob:') || img.startsWith('data:') ? (
+                                                  <img src={img} alt={`عکس ${idx + 1}`} className="w-full h-full object-cover" />
+                                              ) : (
+                                                  <div className="w-full h-full flex flex-col items-center justify-center p-0.5 text-center bg-blue-500/10 text-blue-400 text-[8px] font-mono">
+                                                      <ImageIcon size={12} />
+                                                  </div>
+                                              )}
+                                              <button
+                                                  type="button"
+                                                  onClick={() => handleRemoveProdImage(idx)}
+                                                  className="absolute top-0.5 right-0.5 bg-red-600/80 hover:bg-red-600 text-white p-0.5 rounded-full transition-all"
+                                                  title="حذف"
+                                              >
+                                                  <X size={10} />
+                                              </button>
+                                          </div>
+                                      ))}
+                                  </div>
+                              )}
+
                               <div className="flex gap-2">
                                   <input
                                       type="file"
                                       accept="image/*"
+                                      multiple
                                       ref={prodFileInputRef}
                                       onChange={handleProdImageUpload}
                                       className="hidden"
@@ -1062,20 +1134,31 @@ export const KeyboardBuilder: React.FC = () => {
                                   <button
                                       type="button"
                                       onClick={() => prodFileInputRef.current?.click()}
-                                      disabled={isProdUploading}
+                                      disabled={isProdUploading || prodImages.length >= 10}
                                       className="flex-1 py-2 px-3 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 border border-blue-500/20 transition-all text-xs font-medium flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                                   >
-                                      {isProdUploading ? <span>⏳ در حال آپلود...</span> : <span>📤 آپلود عکس از گالری</span>}
+                                      {isProdUploading ? <span>⏳ در حال آپلود...</span> : <span>📤 آپلود عکس از گالری (چندتایی)</span>}
                                   </button>
                               </div>
-                              <input
-                                  type="text"
-                                  value={prodImage}
-                                  onChange={e => setProdImage(e.target.value)}
-                                  placeholder="یا لینک مستقیم عکس: https://..."
-                                  className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 transition-colors text-right"
-                                  dir="ltr"
-                              />
+                              <div className="flex gap-2">
+                                  <input
+                                      type="text"
+                                      value={prodManualUrl}
+                                      onChange={e => setProdManualUrl(e.target.value)}
+                                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddProdManualUrl(); } }}
+                                      placeholder="یا آدرس عکس: https://..."
+                                      className="flex-1 bg-[#0f172a] border border-white/10 text-white rounded-xl px-3 py-1.5 text-xs outline-none focus:border-blue-500 transition-colors text-right"
+                                      dir="ltr"
+                                  />
+                                  <button
+                                      type="button"
+                                      onClick={handleAddProdManualUrl}
+                                      disabled={!prodManualUrl.trim() || prodImages.length >= 10}
+                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium transition-all disabled:opacity-50"
+                                  >
+                                      افزودن
+                                  </button>
+                              </div>
                           </div>
                       </div>
 
