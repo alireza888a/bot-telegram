@@ -108,6 +108,10 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
       const data = await response.json();
 
       if (data.ok) {
+        if (data.access_token) {
+          localStorage.setItem('webhook_access_token', data.access_token);
+        }
+
         // Update cache
         const newCache: LicenseCache = {
           code: code.trim(),

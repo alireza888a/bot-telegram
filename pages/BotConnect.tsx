@@ -83,20 +83,19 @@ export const BotConnect: React.FC = () => {
       localStorage.setItem('bot_token', apiToken);
       syncNow();
 
-      let licenseCode = '';
-      try {
-        const licenseCache = JSON.parse(localStorage.getItem('license_cache') || '{}');
-        licenseCode = licenseCache.code || '';
-      } catch (e) {}
+      const accessToken = localStorage.getItem('webhook_access_token');
+      if (!accessToken) {
+        setError('⚠️ لطفاً یکبار از پنل خارج و دوباره وارد لایسنس شوید تا اتصال امن فعال شود.');
+        setIsLoading(false);
+        return;
+      }
 
-      if (licenseCode) {
-        const centralWebhookUrl = `https://corepanel-api.tajikr450.workers.dev/api/bot/webhook/${licenseCode}`;
-        const whRes = await telegramService.setWebhook(apiToken, centralWebhookUrl);
-        if (whRes.ok) {
-          localStorage.setItem('bot_webhook_url', centralWebhookUrl);
-          setWebhookUrl(centralWebhookUrl);
-          setSuccessMsg('✅ ربات شما فعال شد و مستقیم به سرور متصله — هیچ کار دیگری لازم نیست.');
-        }
+      const centralWebhookUrl = `https://corepanel-api.tajikr450.workers.dev/api/bot/webhook/${accessToken}`;
+      const whRes = await telegramService.setWebhook(apiToken, centralWebhookUrl, accessToken);
+      if (whRes.ok) {
+        localStorage.setItem('bot_webhook_url', centralWebhookUrl);
+        setWebhookUrl(centralWebhookUrl);
+        setSuccessMsg('✅ ربات شما فعال شد و مستقیم به سرور متصله — هیچ کار دیگری لازم نیست.');
       }
       
       const whData = await telegramService.getWebhookInfo(apiToken);
@@ -124,7 +123,8 @@ export const BotConnect: React.FC = () => {
     
     let res;
     if (webhookUrl) {
-      res = await telegramService.setWebhook(token, webhookUrl);
+      const accessToken = localStorage.getItem('webhook_access_token') || undefined;
+      res = await telegramService.setWebhook(token, webhookUrl, accessToken);
     } else {
       res = await telegramService.deleteWebhook(token);
     }

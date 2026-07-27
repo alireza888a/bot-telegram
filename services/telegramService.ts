@@ -39,9 +39,15 @@ export const telegramService = {
     }
   },
 
-  async setWebhook(token: string, url: string) {
+  async setWebhook(token: string, url: string, secretToken?: string) {
     try {
-      const res = await fetch(`${BASE_URL}${token}/setWebhook?url=${url}`);
+      const body: any = { url };
+      if (secretToken) body.secret_token = secretToken;
+      const res = await fetch(`${BASE_URL}${token}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
       return await res.json();
     } catch (e) {
       return { ok: false, description: 'Network Error' };
