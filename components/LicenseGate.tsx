@@ -107,7 +107,9 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
 
       const data = await response.json();
 
-      if (data.ok) {
+      if (response.status === 429 || data.reason === 'rate_limited') {
+        setErrorMsg('⏳ تعداد تلاش بیش از حد مجاز بود. لطفاً یک دقیقه صبر کنید و دوباره امتحان کنید.');
+      } else if (data.ok) {
         if (data.access_token) {
           localStorage.setItem('webhook_access_token', data.access_token);
         }
