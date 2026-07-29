@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { MessageSquare, RefreshCw, Send, CheckCircle2, Clock, User, MessageCircle, AlertCircle } from 'lucide-react';
+import { MessageSquare, RefreshCw, Send, CheckCircle2, Clock, User, MessageCircle } from 'lucide-react';
 import { BotTicket } from '../types';
-import { loadFromCloud } from '../services/cloudSync';
 
 export const CustomerTickets: React.FC = () => {
-  const [tickets, setTickets] = useState<BotTicket[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('bot_tickets') || '[]');
-    } catch {
-      return [];
-    }
-  });
-
+  const [tickets, setTickets] = useState<BotTicket[]>([]);
   const [filter, setFilter] = useState<'all' | 'open' | 'answered'>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextBefore, setNextBefore] = useState<number | null>(null);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [sendingId, setSendingId] = useState<string | null>(null);
 
@@ -28,25 +23,72 @@ export const CustomerTickets: React.FC = () => {
     }
   };
 
+  const fetchTicketsApi = async (statusFilter: 'all' | 'open' | 'answered', beforeCursor?: number | null) => {
+    const code = getLicenseCode();
+    const payload: any = {
+      code,
+      limit: 30
+    };
+
+    if (statusFilter !== 'all') {
+      payload.status = statusFilter;
+    }
+
+    if (beforeCursor) {
+      payload.before = beforeCursor;
+    }
+
+    const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/support-tickets/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    return await res.json();
+  };
+
   const refreshTickets = async () => {
     setIsRefreshing(true);
     try {
-      const code = getLicenseCode();
-      if (code) {
-        await loadFromCloud(code);
+      const result = await fetchTicketsApi(filter);
+      if (result.ok) {
+        setTickets(result.tickets || []);
+        setHasMore(!!result.hasMore);
+        setNextBefore(result.nextBefore ?? null);
+      } else {
+        alert('خطا در دریافت تیکت‌ها: ' + (result.reason || 'نامشخص'));
       }
-      const freshTickets = JSON.parse(localStorage.getItem('bot_tickets') || '[]');
-      setTickets(freshTickets);
     } catch (e) {
-      console.warn('Error refreshing tickets:', e);
+      console.error('Error fetching tickets:', e);
+      alert('خطا در ارتباط با سرور هنگام دریافت تیکت‌ها.');
     } finally {
       setIsRefreshing(false);
     }
   };
 
+  const handleLoadMore = async () => {
+    if (!nextBefore || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await fetchTicketsApi(filter, nextBefore);
+      if (result.ok) {
+        setTickets(prev => [...prev, ...(result.tickets || [])]);
+        setHasMore(!!result.hasMore);
+        setNextBefore(result.nextBefore ?? null);
+      } else {
+        alert('خطا در دریافت ادامه تیکت‌ها: ' + (result.reason || 'نامشخص'));
+      }
+    } catch (e) {
+      console.error('Error loading more tickets:', e);
+      alert('خطا در دریافت ادامه تیکت‌ها.');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     refreshTickets();
-  }, []);
+  }, [filter]);
 
   const handleReplyChange = (ticketId: string, text: string) => {
     setReplyTexts(prev => ({ ...prev, [ticketId]: text }));
@@ -89,12 +131,6 @@ export const CustomerTickets: React.FC = () => {
       setSendingId(null);
     }
   };
-
-  const filteredTickets = tickets.filter(ticket => {
-    if (filter === 'open') return ticket.status === 'open';
-    if (filter === 'answered') return ticket.status === 'answered';
-    return true;
-  });
 
   const formatDate = (dateVal: number | string) => {
     if (!dateVal) return 'نامشخص';
@@ -184,7 +220,7 @@ export const CustomerTickets: React.FC = () => {
       </div>
 
       {/* Ticket List */}
-      {filteredTickets.length === 0 ? (
+      {tickets.length === 0 ? (
         <GlassCard className="text-center py-12">
           <MessageCircle className="mx-auto text-slate-500 mb-3" size={40} />
           <h3 className="font-bold text-slate-300 text-sm">تیکتی یافت نشد</h3>
@@ -197,102 +233,117 @@ export const CustomerTickets: React.FC = () => {
           </p>
         </GlassCard>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {filteredTickets.map(ticket => (
-            <GlassCard
-              key={ticket.id}
-              className={`border-l-4 transition-all ${
-                ticket.status === 'open'
-                  ? 'border-l-amber-500 bg-amber-500/5'
-                  : 'border-l-emerald-500 bg-emerald-500/5'
-              }`}
-            >
-              <div className="space-y-4">
-                {/* Header info */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/5 pb-3">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-mono font-bold text-xs bg-white/10 text-blue-300 px-2.5 py-1 rounded-lg border border-white/10">
-                      {ticket.id}
-                    </span>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                      <User size={14} className="text-slate-400" />
-                      <span>{ticket.userFirstName || 'کاربر ربات'}</span>
-                      <span className="text-slate-500 font-mono text-[11px] dir-ltr">({ticket.userId})</span>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4">
+            {tickets.map(ticket => (
+              <GlassCard
+                key={ticket.id}
+                className={`border-l-4 transition-all ${
+                  ticket.status === 'open'
+                    ? 'border-l-amber-500 bg-amber-500/5'
+                    : 'border-l-emerald-500 bg-emerald-500/5'
+                }`}
+              >
+                <div className="space-y-4">
+                  {/* Header info */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/5 pb-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="font-mono font-bold text-xs bg-white/10 text-blue-300 px-2.5 py-1 rounded-lg border border-white/10">
+                        {ticket.id}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                        <User size={14} className="text-slate-400" />
+                        <span>{ticket.userFirstName || 'کاربر ربات'}</span>
+                        <span className="text-slate-500 font-mono text-[11px] dir-ltr">({ticket.userId})</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                      <Clock size={12} />
-                      {formatDate(ticket.createdAt)}
-                    </span>
-                    {ticket.status === 'open' ? (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                        <Clock size={11} />
-                        در انتظار پاسخ
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <Clock size={12} />
+                        {formatDate(ticket.createdAt)}
                       </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                        <CheckCircle2 size={11} />
-                        پاسخ داده شد
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Question Message */}
-                <div className="bg-black/20 border border-white/5 rounded-xl p-3.5 text-sm leading-relaxed dark:text-slate-200 text-slate-800 whitespace-pre-wrap">
-                  <p className="text-[11px] font-bold text-slate-400 mb-1">متن سوال خریدار:</p>
-                  {ticket.message}
-                </div>
-
-                {/* Reply section: Open vs Answered */}
-                {ticket.status === 'open' ? (
-                  <div className="space-y-2 pt-1">
-                    <label className="block text-xs font-bold text-slate-300">پاسخ به این تیکت:</label>
-                    <textarea
-                      rows={3}
-                      value={replyTexts[ticket.id] || ''}
-                      onChange={e => handleReplyChange(ticket.id, e.target.value)}
-                      placeholder="متن پاسخ خود را بنویسید..."
-                      className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors resize-none"
-                    />
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => handleSendReply(ticket)}
-                        disabled={sendingId === ticket.id}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
-                      >
-                        {sendingId === ticket.id ? (
-                          <RefreshCw size={14} className="animate-spin" />
-                        ) : (
-                          <Send size={14} />
-                        )}
-                        <span>ارسال پاسخ</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5 space-y-1.5 text-xs">
-                    <div className="flex justify-between items-center text-emerald-400 font-bold">
-                      <span className="flex items-center gap-1.5">
-                        <CheckCircle2 size={14} />
-                        پاسخ ارسال‌شده توسط ادمین:
-                      </span>
-                      {ticket.repliedAt && (
-                        <span className="text-[10px] text-slate-400 font-normal">
-                          {formatDate(ticket.repliedAt)}
+                      {ticket.status === 'open' ? (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <Clock size={11} />
+                          در انتظار پاسخ
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                          <CheckCircle2 size={11} />
+                          پاسخ داده شد
                         </span>
                       )}
                     </div>
-                    <p className="text-slate-200 leading-relaxed whitespace-pre-wrap pt-1">
-                      {ticket.adminReply || 'پاسخ ثبت شده است.'}
-                    </p>
                   </div>
-                )}
-              </div>
-            </GlassCard>
-          ))}
+
+                  {/* Question Message */}
+                  <div className="bg-black/20 border border-white/5 rounded-xl p-3.5 text-sm leading-relaxed dark:text-slate-200 text-slate-800 whitespace-pre-wrap">
+                    <p className="text-[11px] font-bold text-slate-400 mb-1">متن سوال خریدار:</p>
+                    {ticket.message}
+                  </div>
+
+                  {/* Reply section: Open vs Answered */}
+                  {ticket.status === 'open' ? (
+                    <div className="space-y-2 pt-1">
+                      <label className="block text-xs font-bold text-slate-300">پاسخ به این تیکت:</label>
+                      <textarea
+                        rows={3}
+                        value={replyTexts[ticket.id] || ''}
+                        onChange={e => handleReplyChange(ticket.id, e.target.value)}
+                        placeholder="متن پاسخ خود را بنویسید..."
+                        className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors resize-none"
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => handleSendReply(ticket)}
+                          disabled={sendingId === ticket.id}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                        >
+                          {sendingId === ticket.id ? (
+                            <RefreshCw size={14} className="animate-spin" />
+                          ) : (
+                            <Send size={14} />
+                          )}
+                          <span>ارسال پاسخ</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5 space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-emerald-400 font-bold">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 size={14} />
+                          پاسخ ارسال‌شده توسط ادمین:
+                        </span>
+                        {ticket.repliedAt && (
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            {formatDate(ticket.repliedAt)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-200 leading-relaxed whitespace-pre-wrap pt-1">
+                        {ticket.adminReply || 'پاسخ ثبت شده است.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                {isLoadingMore && <RefreshCw size={14} className="animate-spin" />}
+                <span>نمایش تیکت‌های قدیمی‌تر</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
