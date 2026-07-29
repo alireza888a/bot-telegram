@@ -24,6 +24,7 @@ export const BookingPage: React.FC = () => {
   const [servicePrice, setServicePrice] = useState<string>('');
   const [serviceActive, setServiceActive] = useState(true);
   const [serviceProviderIds, setServiceProviderIds] = useState<string[]>([]);
+  const [serviceDescription, setServiceDescription] = useState('');
 
   // 1.5. Providers state
   const [providers, setProviders] = useState<Provider[]>(() => {
@@ -37,6 +38,7 @@ export const BookingPage: React.FC = () => {
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [providerName, setProviderName] = useState('');
   const [providerActive, setProviderActive] = useState(true);
+  const [providerDescription, setProviderDescription] = useState('');
   const [providerHours, setProviderHours] = useState<WorkingHours>({
     sat: { start: '09:00', end: '18:00' },
     sun: { start: '09:00', end: '18:00' },
@@ -198,6 +200,7 @@ export const BookingPage: React.FC = () => {
       setServicePrice(service.price ? String(service.price) : '');
       setServiceActive(service.active);
       setServiceProviderIds(service.providerIds || []);
+      setServiceDescription(service.description || '');
     } else {
       setEditingService(null);
       setServiceName('');
@@ -205,6 +208,7 @@ export const BookingPage: React.FC = () => {
       setServicePrice('');
       setServiceActive(true);
       setServiceProviderIds([]);
+      setServiceDescription('');
     }
     setIsServiceModalOpen(true);
   };
@@ -214,6 +218,7 @@ export const BookingPage: React.FC = () => {
     if (!serviceName.trim()) return;
 
     const pIds = serviceProviderIds.length > 0 ? serviceProviderIds : undefined;
+    const desc = serviceDescription.trim() || undefined;
 
     let updated: BookableService[];
     if (editingService) {
@@ -223,7 +228,8 @@ export const BookingPage: React.FC = () => {
         durationMinutes: Number(serviceDuration) || 30,
         price: servicePrice ? Number(servicePrice) : undefined,
         active: serviceActive,
-        providerIds: pIds
+        providerIds: pIds,
+        description: desc
       } : s);
     } else {
       const newSvc: BookableService = {
@@ -232,7 +238,8 @@ export const BookingPage: React.FC = () => {
         durationMinutes: Number(serviceDuration) || 30,
         price: servicePrice ? Number(servicePrice) : undefined,
         active: serviceActive,
-        providerIds: pIds
+        providerIds: pIds,
+        description: desc
       };
       updated = [...services, newSvc];
     }
@@ -265,11 +272,13 @@ export const BookingPage: React.FC = () => {
       setProviderName(provider.name);
       setProviderActive(provider.active);
       setProviderHours(provider.workingHours || defaultHours);
+      setProviderDescription(provider.description || '');
     } else {
       setEditingProvider(null);
       setProviderName('');
       setProviderActive(true);
       setProviderHours(defaultHours);
+      setProviderDescription('');
     }
     setIsProviderModalOpen(true);
   };
@@ -278,20 +287,24 @@ export const BookingPage: React.FC = () => {
     e.preventDefault();
     if (!providerName.trim()) return;
 
+    const pDesc = providerDescription.trim() || undefined;
+
     let updated: Provider[];
     if (editingProvider) {
       updated = providers.map(p => p.id === editingProvider.id ? {
         ...p,
         name: providerName.trim(),
         active: providerActive,
-        workingHours: providerHours
+        workingHours: providerHours,
+        description: pDesc
       } : p);
     } else {
       const newProv: Provider = {
         id: 'prov_' + Math.random().toString(36).substr(2, 9),
         name: providerName.trim(),
         active: providerActive,
-        workingHours: providerHours
+        workingHours: providerHours,
+        description: pDesc
       };
       updated = [...providers, newProv];
     }
@@ -1012,6 +1025,17 @@ export const BookingPage: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs text-slate-300 font-medium mb-1.5">توضیحات (اختیاری)</label>
+                <textarea
+                  value={serviceDescription}
+                  onChange={(e) => setServiceDescription(e.target.value)}
+                  placeholder="این توضیح موقع انتخاب خدمت تو ربات به خریدار نشون داده میشه"
+                  rows={3}
+                  className="w-full bg-black/30 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-blue-500 custom-scrollbar resize-none"
+                />
+              </div>
+
               {/* Provider selection for service */}
               <div>
                 <label className="block text-xs text-slate-300 font-medium mb-1.5">
@@ -1108,6 +1132,17 @@ export const BookingPage: React.FC = () => {
                   placeholder="مثلاً: دکتر رضایی / آقای علی‌نژاد"
                   className="w-full bg-black/30 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-blue-500"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-300 font-medium mb-1.5">توضیحات / رزومه (اختیاری)</label>
+                <textarea
+                  value={providerDescription}
+                  onChange={(e) => setProviderDescription(e.target.value)}
+                  placeholder="مثلاً تخصص، سابقه کاری، یا هر چیزی که خریدار قبل از انتخاب باید بدونه"
+                  rows={3}
+                  className="w-full bg-black/30 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-blue-500 custom-scrollbar resize-none"
                 />
               </div>
 

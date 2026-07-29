@@ -169,6 +169,7 @@ export interface BookableService {
   price?: number;
   active: boolean;
   providerIds?: string[];
+  description?: string;
 }
 
 export interface WorkingHours {
@@ -186,6 +187,7 @@ export interface Provider {
   name: string;
   active: boolean;
   workingHours: WorkingHours;
+  description?: string;
 }
 
 export interface Booking {
