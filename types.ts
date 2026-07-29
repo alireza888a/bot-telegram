@@ -168,6 +168,7 @@ export interface BookableService {
   durationMinutes: number;
   price?: number;
   active: boolean;
+  providerIds?: string[];
 }
 
 export interface WorkingHours {
@@ -180,9 +181,17 @@ export interface WorkingHours {
   sat?: { start: string; end: string } | null;
 }
 
+export interface Provider {
+  id: string;
+  name: string;
+  active: boolean;
+  workingHours: WorkingHours;
+}
+
 export interface Booking {
   id: string; // BKG-XXXXXX
   serviceId: string;
+  providerId?: string | null;
   userId: string;
   userFirstName: string;
   contactInfo?: string;

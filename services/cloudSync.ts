@@ -37,7 +37,8 @@ export const saveToCloud = async (code: string): Promise<boolean> => {
         tickets: JSON.parse(localStorage.getItem('bot_tickets') || '[]'),
         automations: JSON.parse(localStorage.getItem('bot_automations') || '[]'),
         gallery: JSON.parse(localStorage.getItem('gallery_images') || '[]'),
-        services: JSON.parse(localStorage.getItem('booking_services') || '[]')
+        services: JSON.parse(localStorage.getItem('booking_services') || '[]'),
+        providers: JSON.parse(localStorage.getItem('booking_providers') || '[]')
       }
     };
 
@@ -105,6 +106,7 @@ export const loadFromCloud = async (code: string): Promise<boolean> => {
         if (json.data.automations) localStorage.setItem('bot_automations', JSON.stringify(json.data.automations));
         if (json.data.gallery) localStorage.setItem('gallery_images', JSON.stringify(json.data.gallery));
         if (json.data.services) localStorage.setItem('booking_services', JSON.stringify(json.data.services));
+        if (json.data.providers) localStorage.setItem('booking_providers', JSON.stringify(json.data.providers));
         if (json.data.bookings) localStorage.setItem('bookings_cache', JSON.stringify(json.data.bookings));
       }
       return true;
