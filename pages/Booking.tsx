@@ -320,6 +320,21 @@ export const BookingPage: React.FC = () => {
     return found ? found.name : 'خدمت عمومی';
   };
 
+  const formatBookingDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr + 'T00:00:00');
+      return new Intl.DateTimeFormat('fa-IR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Asia/Tehran'
+      }).format(d);
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -491,7 +506,7 @@ export const BookingPage: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400">تاریخ نوبت:</span>
-                        <span className="font-mono text-cyan-400 font-bold">{b.date}</span>
+                        <span className="font-mono text-cyan-400 font-bold">{formatBookingDate(b.date)}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400">ساعت نوبت:</span>
