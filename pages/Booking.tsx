@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Plus, Trash2, Edit3, CheckCircle2, XCircle, RefreshCw, AlertTriangle, Loader2, Save, User, Tag, Phone, Zap } from 'lucide-react';
 import { BookableService, WorkingHours, Booking } from '../types';
-import { loadFromCloud, syncNow } from '../services/cloudSync';
+import { syncNow } from '../services/cloudSync';
 
 export const BookingPage: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'bookings' | 'services' | 'hours'>('bookings');
@@ -46,15 +46,12 @@ export const BookingPage: React.FC = () => {
   const [hoursSavedSuccess, setHoursSavedSuccess] = useState(false);
 
   // 3. Bookings state
-  const [bookings, setBookings] = useState<Booking[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('bookings_cache') || '[]');
-    } catch {
-      return [];
-    }
-  });
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextBefore, setNextBefore] = useState<number | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,6 +63,17 @@ export const BookingPage: React.FC = () => {
       console.error(e);
     }
   }, []);
+
+  const getLicenseCode = (): string => {
+    if (code) return code;
+    try {
+      const licenseStr = localStorage.getItem('license_cache') || '{}';
+      const parsed = JSON.parse(licenseStr);
+      return parsed.code || licenseStr;
+    } catch {
+      return localStorage.getItem('license_cache') || '';
+    }
+  };
 
   const handleAddBookingButtonToRoot = () => {
     try {
@@ -93,26 +101,70 @@ export const BookingPage: React.FC = () => {
     }
   };
 
-  // Fetch bookings from cloud
+  // Fetch bookings from cloud D1 API
+  const fetchBookingsApi = async (statusVal: 'all' | 'pending' | 'confirmed' | 'cancelled', beforeCursor?: number | null) => {
+    const licenseCode = getLicenseCode();
+    const payload: any = {
+      code: licenseCode,
+      limit: 30
+    };
+    if (statusVal !== 'all') {
+      payload.status = statusVal;
+    }
+    if (beforeCursor) {
+      payload.before = beforeCursor;
+    }
+
+    const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/bookings/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return await res.json();
+  };
+
   const refreshBookings = async () => {
-    if (!code) return;
     setIsLoading(true);
-    await loadFromCloud(code);
     try {
-      const cached = JSON.parse(localStorage.getItem('bookings_cache') || '[]');
-      setBookings(cached);
+      const result = await fetchBookingsApi(statusFilter);
+      if (result.ok) {
+        setBookings(result.bookings || []);
+        setHasMore(!!result.hasMore);
+        setNextBefore(result.nextBefore ?? null);
+      } else {
+        alert('خطا در دریافت لیست نوبت‌ها: ' + (result.reason || 'نامشخص'));
+      }
     } catch (e) {
       console.error(e);
+      alert('خطا در ارتباط با سرور هنگام دریافت نوبت‌ها.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (code) {
-      refreshBookings();
+  const handleLoadMore = async () => {
+    if (!nextBefore || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await fetchBookingsApi(statusFilter, nextBefore);
+      if (result.ok) {
+        setBookings(prev => [...prev, ...(result.bookings || [])]);
+        setHasMore(!!result.hasMore);
+        setNextBefore(result.nextBefore ?? null);
+      } else {
+        alert('خطا در دریافت ادامه نوبت‌ها: ' + (result.reason || 'نامشخص'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('خطا در دریافت ادامه نوبت‌ها.');
+    } finally {
+      setIsLoadingMore(false);
     }
-  }, [code]);
+  };
+
+  useEffect(() => {
+    refreshBookings();
+  }, [code, statusFilter]);
 
   // Service Handlers
   const handleOpenServiceModal = (service?: BookableService) => {
@@ -263,11 +315,6 @@ export const BookingPage: React.FC = () => {
     }
   };
 
-  const filteredBookings = bookings.filter(b => {
-    if (statusFilter === 'all') return true;
-    return b.status === statusFilter;
-  });
-
   const getServiceName = (serviceId: string) => {
     const found = services.find(s => s.id === serviceId);
     return found ? found.name : 'خدمت عمومی';
@@ -391,100 +438,115 @@ export const BookingPage: React.FC = () => {
               <Loader2 size={32} className="text-blue-500 animate-spin mx-auto" />
               <p className="text-xs text-slate-400">در حال دریافت لیست نوبت‌ها...</p>
             </div>
-          ) : filteredBookings.length === 0 ? (
+          ) : bookings.length === 0 ? (
             <div className="p-12 text-center bg-[#1e293b]/30 border border-white/5 rounded-2xl space-y-3">
               <Calendar size={40} className="text-slate-600 mx-auto" />
               <p className="text-sm font-medium text-slate-400">نوبتی در این بخش ثبت نشده است.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredBookings.map(b => (
-                <div
-                  key={b.id}
-                  className="bg-[#1e293b]/60 border border-white/10 rounded-2xl p-5 space-y-4 shadow-lg backdrop-blur-sm relative hover:border-white/20 transition-all"
-                >
-                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-mono">شناسه: {b.id}</span>
-                      <h3 className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
-                        <User size={14} className="text-blue-400" />
-                        <span>{b.userFirstName || 'کاربر تلگرام'}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">({b.userId})</span>
-                      </h3>
-                      {b.contactInfo && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 mt-1">
-                          <Phone size={12} className="text-amber-400 shrink-0" />
-                          <span>تماس: <strong>{b.contactInfo}</strong></span>
-                        </div>
-                      )}
-                    </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {bookings.map(b => (
+                  <div
+                    key={b.id}
+                    className="bg-[#1e293b]/60 border border-white/10 rounded-2xl p-5 space-y-4 shadow-lg backdrop-blur-sm relative hover:border-white/20 transition-all"
+                  >
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-mono">شناسه: {b.id}</span>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
+                          <User size={14} className="text-blue-400" />
+                          <span>{b.userFirstName || 'کاربر تلگرام'}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">({b.userId})</span>
+                        </h3>
+                        {b.contactInfo && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 mt-1">
+                            <Phone size={12} className="text-amber-400 shrink-0" />
+                            <span>تماس: <strong>{b.contactInfo}</strong></span>
+                          </div>
+                        )}
+                      </div>
 
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        b.status === 'confirmed'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          b.status === 'confirmed'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : b.status === 'cancelled'
+                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        }`}
+                      >
+                        {b.status === 'confirmed'
+                          ? 'تاییدشده'
                           : b.status === 'cancelled'
-                          ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      }`}
-                    >
-                      {b.status === 'confirmed'
-                        ? 'تاییدشده'
-                        : b.status === 'cancelled'
-                        ? 'ردشده'
-                        : 'در انتظار تایید'}
-                    </span>
-                  </div>
+                          ? 'ردشده'
+                          : 'در انتظار تایید'}
+                      </span>
+                    </div>
 
-                  <div className="space-y-2 text-xs text-slate-300 bg-black/20 p-3 rounded-xl border border-white/5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">عنوان خدمت:</span>
-                      <span className="font-bold text-white">{getServiceName(b.serviceId)}</span>
+                    <div className="space-y-2 text-xs text-slate-300 bg-black/20 p-3 rounded-xl border border-white/5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">عنوان خدمت:</span>
+                        <span className="font-bold text-white">{getServiceName(b.serviceId)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">تاریخ نوبت:</span>
+                        <span className="font-mono text-cyan-400 font-bold">{b.date}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">ساعت نوبت:</span>
+                        <span className="font-mono text-amber-400 font-bold">{b.time}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">تاریخ نوبت:</span>
-                      <span className="font-mono text-cyan-400 font-bold">{b.date}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">ساعت نوبت:</span>
-                      <span className="font-mono text-amber-400 font-bold">{b.time}</span>
-                    </div>
-                  </div>
 
-                  {b.status === 'pending' && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={() => handleConfirmBooking(b.id)}
-                        disabled={actionLoadingId === b.id}
-                        className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50"
-                      >
-                        {actionLoadingId === b.id ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <>
-                            <CheckCircle2 size={14} />
-                            <span>تأیید نوبت</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleRejectBooking(b.id)}
-                        disabled={actionLoadingId === b.id}
-                        className="flex-1 py-2 px-3 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      >
-                        {actionLoadingId === b.id ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <>
-                            <XCircle size={14} />
-                            <span>رد نوبت</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
+                    {b.status === 'pending' && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => handleConfirmBooking(b.id)}
+                          disabled={actionLoadingId === b.id}
+                          className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
+                        >
+                          {actionLoadingId === b.id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <>
+                              <CheckCircle2 size={14} />
+                              <span>تأیید نوبت</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleRejectBooking(b.id)}
+                          disabled={actionLoadingId === b.id}
+                          className="flex-1 py-2 px-3 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                        >
+                          {actionLoadingId === b.id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <>
+                              <XCircle size={14} />
+                              <span>رد نوبت</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+                  >
+                    {isLoadingMore && <RefreshCw size={14} className="animate-spin" />}
+                    <span>نمایش نوبت‌های قدیمی‌تر</span>
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
