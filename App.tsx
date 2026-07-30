@@ -16,7 +16,6 @@ import { CustomerTickets } from './pages/CustomerTickets';
 import { Automations } from './pages/Automations';
 import { MiniShop } from './pages/MiniShop';
 import { BookingPage } from './pages/Booking';
-import { BotEngine } from './components/BotEngine'; 
 import { useCloudAutoSave } from './hooks/useCloudAutoSave';
 
 const App: React.FC = () => {
@@ -100,9 +99,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <>
-      <BotEngine /> {/* Runs globally */}
-      <Layout 
+    <Layout 
         currentPage={currentPage} 
         onNavigate={setCurrentPage}
         toggleTheme={toggleTheme}
@@ -110,7 +107,6 @@ const App: React.FC = () => {
       >
         {renderPage()}
       </Layout>
-    </>
   );
 };
 

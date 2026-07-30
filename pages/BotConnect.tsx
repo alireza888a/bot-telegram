@@ -27,22 +27,44 @@ export const BotConnect: React.FC = () => {
   const [botInfo, setBotInfo] = useState<TelegramUser | null>(null);
   const [webhookInfo, setWebhookInfo] = useState<WebhookInfo | null>(null);
 
-  // Live Monitor State (Listener)
-  const [logs, setLogs] = useState<LogMessage[]>(() => {
-      try { return JSON.parse(localStorage.getItem('bot_logs') || '[]'); } catch { return []; }
-  });
+  // Live Monitor State
+  const [logs, setLogs] = useState<LogMessage[]>([]);
   
   const [autoReply, setAutoReply] = useState(() => {
       return localStorage.getItem('bot_auto_reply') !== 'false';
   });
 
-  // Listen to Global Bot Events from BotEngine
+  // Fetch Live Logs from D1 API
+  const fetchLogs = async () => {
+    let licenseCode = '';
+    try {
+      const cache = JSON.parse(localStorage.getItem('license_cache') || '{}');
+      licenseCode = cache.code || (typeof cache === 'string' ? cache : '');
+    } catch {
+      licenseCode = localStorage.getItem('license_cache') || '';
+    }
+
+    if (!licenseCode) return;
+
+    try {
+      const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/logs/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: licenseCode, limit: 30 })
+      });
+      const result = await res.json();
+      if (result && result.ok) {
+        setLogs(result.logs || []);
+      }
+    } catch (e) {
+      console.warn("Error fetching live logs:", e);
+    }
+  };
+
   useEffect(() => {
-      const handleLog = (e: any) => {
-          setLogs(prev => [...prev, e.detail].slice(-50)); // Keep last 50
-      };
-      window.addEventListener('bot-log', handleLog);
-      return () => window.removeEventListener('bot-log', handleLog);
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Sync AutoReply Setting
@@ -67,7 +89,6 @@ export const BotConnect: React.FC = () => {
 
   const clearLogs = () => {
       setLogs([]);
-      localStorage.removeItem('bot_logs');
   };
 
   const checkConnection = async (apiToken: string) => {
@@ -147,7 +168,6 @@ export const BotConnect: React.FC = () => {
 
   const handleDisconnect = () => {
     localStorage.removeItem('bot_token');
-    localStorage.removeItem('bot_logs');
     setLogs([]);
     setBotInfo(null);
     setWebhookInfo(null);
