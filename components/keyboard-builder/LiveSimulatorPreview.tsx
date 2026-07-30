@@ -18,72 +18,78 @@ export const LiveSimulatorPreview: React.FC<LiveSimulatorPreviewProps> = ({
   navigateBack,
 }) => {
   return (
-    <div className="bg-black/40 border border-white/10 rounded-2xl p-4 flex flex-col h-full shadow-inner">
-      <div className="flex justify-between items-center mb-4 text-xs dark:text-white/40 text-slate-500 border-b border-white/5 pb-2">
-        <span className="flex items-center gap-1 font-bold text-slate-300">
-          <Eye size={14} className="text-blue-400" /> پیش‌نمایش زنده ربات (تلگرام)
-        </span>
-        <span>منوی فعال: {currentMenu.id}</span>
-      </div>
+    <div className="relative flex flex-col items-center pt-8">
+        <div className="absolute top-0 flex items-center gap-2 bg-green-500/10 text-green-600 dark:text-green-400 px-4 py-1.5 rounded-full text-sm font-medium border border-green-500/20 shadow-sm animate-pulse cursor-pointer hover:bg-green-500/20 transition-colors">
+          <Eye size={16} />
+          پیش‌نمایش تعاملی (کلیک کنید)
+       </div>
 
-      <div className="flex-1 bg-[#0f172a] rounded-xl p-4 overflow-y-auto space-y-4 border border-white/5 flex flex-col justify-end min-h-[400px]">
-        {/* Telegram Message Mock */}
-        <div className="bg-[#1e293b] rounded-2xl p-4 max-w-[90%] self-start border border-white/5 shadow-md space-y-3 animate-fade-in">
-          {/* Media Attachments Preview */}
-          {currentMenu.media.length > 0 && (
-            <div className="grid gap-2 grid-cols-1">
-              {currentMenu.media.map(media => (
-                <div key={media.id} className="rounded-lg overflow-hidden border border-white/10 bg-black/40">
-                  {media.type === 'image' && <img src={media.previewUrl || media.url} alt="Telegram Attachment" className="w-full h-auto max-h-48 object-cover" />}
-                  {media.type === 'video' && <video src={media.previewUrl || media.url} controls className="w-full h-auto max-h-48 object-cover" />}
-                  {media.type === 'audio' && (
-                    <div className="p-3 flex items-center gap-2 text-xs text-orange-300">
-                      <Music size={16} />
-                      <audio src={media.previewUrl || media.url} controls className="w-full h-8" />
-                    </div>
-                  )}
+      <div className="telegram-simulator mt-8 w-[300px] bg-[#1c2431] rounded-[30px] border-[6px] border-[#252f3f] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] overflow-hidden relative h-[600px] flex flex-col shrink-0">
+             {/* MESSAGE BUBBLE */}
+             <div className="flex-1 bg-[#0e1621] p-2 overflow-y-auto space-y-2 bg-[url('https://web.telegram.org/img/bg_0.png')] bg-repeat custom-scrollbar mt-12">
+             <div className="bg-[#182533] rounded-tl-xl rounded-tr-xl rounded-br-xl rounded-bl-none max-w-[95%] shadow-sm overflow-hidden animate-slide-up">
+                {/* Media */}
+                {currentMenu.media.length > 0 && (
+                  <div className={`grid gap-0.5 ${currentMenu.media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                    {currentMenu.media.map((media, i) => (
+                      <div key={i} className={`relative bg-black/50 ${currentMenu.media.length === 1 ? 'aspect-video' : 'aspect-square'} overflow-hidden`}>
+                          {media.type === 'image' && <img src={media.previewUrl || media.url} className="w-full h-full object-cover" />}
+                          {media.type === 'video' && <video src={media.previewUrl || media.url} className="w-full h-full object-cover" />}
+                          {media.type === 'audio' && <div className="w-full h-full flex flex-col items-center justify-center text-white/70"><Music size={24}/><span className="text-[10px] mt-1">Audio</span></div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Text */}
+                <div className="p-3 text-white text-sm whitespace-pre-wrap dir-rtl text-right leading-relaxed">
+                   {currentMenu.content || '...'}
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="px-3 pb-1 text-right"><span className="text-[10px] text-white/40">14:05</span></div>
+             </div>
 
-          {/* Text Content */}
-          <p className="text-sm text-white whitespace-pre-wrap leading-relaxed font-vazir">
-            {currentMenu.content || 'متنی برای این منو تنظیم نشده است.'}
-          </p>
-
-          <div className="text-[10px] text-white/30 text-left dir-ltr">12:34 PM</div>
-        </div>
-
-        {/* Telegram Keyboard Mock */}
-        {currentMenu.rows.length > 0 && (
-          <div className="space-y-1.5 pt-2">
-            {currentMenu.rows.map(row => (
-              <div key={row.id} className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${row.buttons.length}, minmax(0, 1fr))` }}>
-                {row.buttons.map(btn => (
-                  <button
-                    key={btn.id}
-                    onClick={() => handlePreviewAction(btn)}
-                    className="bg-[#28364e] hover:bg-[#324463] active:scale-95 text-blue-200 py-2.5 px-2 rounded-xl text-xs font-medium text-center truncate border border-white/5 transition-all shadow"
-                  >
-                    {getButtonDisplayText(btn)}
-                  </button>
+             {/* Buttons */}
+              <div className="max-w-[95%] space-y-[2px] animate-slide-up">
+                {currentMenu.rows.map((row) => (
+                  <div key={row.id} className="flex gap-[2px] w-full">
+                    {row.buttons.map((btn) => (
+                      <button
+                        key={btn.id}
+                        onClick={() => handlePreviewAction(btn)}
+                        className={`
+                          flex-1 text-xs py-2.5 px-1 rounded-[4px] text-center cursor-pointer transition-all duration-200 truncate font-medium relative select-none border border-transparent
+                          ${btn.color === 'blue'
+                            ? 'bg-blue-600/30 hover:bg-blue-600/50 active:bg-blue-600/70 text-blue-100 border-blue-500/20'
+                            : btn.color === 'green'
+                            ? 'bg-emerald-600/30 hover:bg-emerald-600/50 active:bg-emerald-600/70 text-emerald-100 border-emerald-500/20'
+                            : btn.color === 'red'
+                            ? 'bg-red-600/30 hover:bg-red-600/50 active:bg-red-600/70 text-red-100 border-red-500/20'
+                            : btn.color === 'gold'
+                            ? 'bg-amber-500/35 hover:bg-amber-500/55 active:bg-amber-500/75 text-amber-200 border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.2)]'
+                            : btn.color === 'orange'
+                            ? 'bg-orange-600/30 hover:bg-orange-600/50 active:bg-orange-600/70 text-orange-100 border-orange-500/20'
+                            : 'bg-[#2b5278]/20 hover:bg-[#2b5278]/40 active:bg-[#2b5278]/60 text-white'
+                          }
+                        `}
+                      >
+                        {btn.condition?.type && btn.condition.type !== 'none' && (
+                          <span className="text-amber-400 font-bold ml-1 inline-block" title="دکمه شرطی">⚡</span>
+                        )}
+                        {getButtonDisplayText(btn)}
+                      </button>
+                    ))}
+                  </div>
                 ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Helper Bar */}
-      <div className="mt-3 flex justify-between items-center text-[11px] text-slate-400 px-1">
-        <span>کلیک روی دکمه‌ها در حالت پیش‌نمایش عمل می‌کند</span>
-        {currentMenu.id !== 'root' && (
-          <button onClick={navigateBack} className="text-blue-400 hover:underline">
-            بازگشت به منوی قبل
-          </button>
-        )}
-      </div>
+                {/* Auto Nav Injection in Preview */}
+                {currentMenu.id !== 'root' && (
+                    <div className="flex gap-[2px] w-full">
+                        <button onClick={() => navigateTo('root')} className="flex-1 bg-[#2b5278]/20 hover:bg-[#2b5278]/40 text-white text-xs py-2.5 px-1 rounded-[4px] text-center">🏠 منوی اصلی</button>
+                        <button onClick={navigateBack} className="flex-1 bg-[#2b5278]/20 hover:bg-[#2b5278]/40 text-white text-xs py-2.5 px-1 rounded-[4px] text-center">🔙 بازگشت</button>
+                    </div>
+                )}
+                </div>
+             </div>
+       </div>
     </div>
   );
 };
