@@ -133,19 +133,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               const channels = JSON.parse(localStorage.getItem('saved_channels') || '[]');
               const queue = JSON.parse(localStorage.getItem('channel_queue') || '[]');
               const cmds = JSON.parse(localStorage.getItem('bot_commands') || '[]');
-              const logs = JSON.parse(localStorage.getItem('bot_logs') || '[]');
+
+              let licenseCode = '';
+              try {
+                  const cache = JSON.parse(localStorage.getItem('license_cache') || '{}');
+                  licenseCode = cache.code || (typeof cache === 'string' ? cache : '');
+              } catch {
+                  licenseCode = localStorage.getItem('license_cache') || '';
+              }
+
+              let totalLogsCount = 0;
+
+              if (licenseCode) {
+                  try {
+                      const res = await fetch('https://corepanel-api.tajikr450.workers.dev/api/logs/list', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ code: licenseCode, limit: 5 })
+                      });
+                      const result = await res.json();
+                      if (result && result.ok) {
+                          totalLogsCount = result.totalCount || 0;
+                          setRecentLogs(result.logs || []);
+                      }
+                  } catch (e) {
+                      console.warn("Error fetching logs from API:", e);
+                  }
+              }
 
               setStats({
                   channelsCount: channels.length,
                   queuePending: queue.filter((q: any) => q.status === 'pending').length,
                   commandsCount: cmds.length,
-                  totalLogs: logs.length
+                  totalLogs: totalLogsCount
               });
 
-              setRecentLogs(logs.slice(-5).reverse());
-
               // Generate Chart Data
-              const baseActivity = logs.length > 0 ? Math.ceil(logs.length / 10) : 5;
+              const baseActivity = totalLogsCount > 0 ? Math.ceil(totalLogsCount / 10) : 5;
               setChartData([
                   { name: '00:00', activity: baseActivity + 2 },
                   { name: '04:00', activity: baseActivity },
