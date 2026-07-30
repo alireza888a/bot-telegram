@@ -1,52 +1,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GlassCard } from '../components/GlassCard';
-import { Plus, Trash2, Link as LinkIcon, Edit3, Eye, Sparkles, LayoutGrid, Music, Video, Image as ImageIcon, MessageSquare, Layers, Command, FileText, ArrowLeft, ArrowRight, CornerUpRight, Home, Copy, ArrowUp, ArrowDown, List, Reply, Download, Upload, FileJson, LayoutTemplate, Zap, Check, Lock, Globe, Terminal, X, Send, UserCog, ListChecks, RefreshCcw, Cloud, PhoneCall, FileInput, File, AlertTriangle, ShoppingBag, DollarSign } from 'lucide-react';
-import { InlineRow, InlineButton, ButtonActionType, MediaAttachment, MenuPage, FormConfig, FormQuestion, InquiryConfig, Product } from '../types';
+import { List, Download, Upload, RefreshCcw, LayoutTemplate, Home, ArrowRight } from 'lucide-react';
+import { InlineRow, InlineButton, MediaAttachment, MenuPage, FormConfig, FormQuestion, InquiryConfig, Product } from '../types';
 import { suggestButtonLabels } from '../services/geminiService';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
-import { getDisplayableImageUrl } from '../utils/image';
 
-const FormCheckboxSimulator: React.FC<{ options: string[]; onSubmit: (selected: string[]) => void }> = ({ options, onSubmit }) => {
-    const [selected, setSelected] = useState<string[]>([]);
-
-    const toggle = (opt: string) => {
-        setSelected(prev => prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt]);
-    };
-
-    return (
-        <div className="space-y-2">
-            <div className="grid grid-cols-1 gap-2">
-                {options.map((opt, oIdx) => {
-                    const isChecked = selected.includes(opt);
-                    return (
-                        <div
-                            key={oIdx}
-                            onClick={() => toggle(opt)}
-                            className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-                                isChecked
-                                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-200'
-                                    : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'
-                            }`}
-                        >
-                            <span>{opt}</span>
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${isChecked ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/30'}`}>
-                                {isChecked && <Check size={12} />}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-            <button
-                onClick={() => onSubmit(selected.length > 0 ? selected : ['هیچ گزینه‌ای انتخاب نشد'])}
-                className="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-600/20"
-            >
-                تایید و ارسال ({selected.length} گزینه انتخاب شده)
-            </button>
-        </div>
-    );
-};
+import { FormDesignerModal } from '../components/keyboard-builder/FormDesignerModal';
+import { NewProductModal } from '../components/keyboard-builder/NewProductModal';
+import { ButtonPreviewModal } from '../components/keyboard-builder/ButtonPreviewModal';
+import { MenuSidebar } from '../components/keyboard-builder/MenuSidebar';
+import { MenuContentEditorCard } from '../components/keyboard-builder/MenuContentEditorCard';
+import { MenuButtonsCard } from '../components/keyboard-builder/MenuButtonsCard';
+import { ButtonPropertiesCard } from '../components/keyboard-builder/ButtonPropertiesCard';
+import { LiveSimulatorPreview } from '../components/keyboard-builder/LiveSimulatorPreview';
 
 export const KeyboardBuilder: React.FC = () => {
   // --- STATE MANAGEMENT ---
@@ -761,777 +728,92 @@ export const KeyboardBuilder: React.FC = () => {
     }
   };
 
-  const handleCatalogUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCatalogUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
           setIsUploading(true);
           
           if (!dbChannel || !token) {
-              alert('برای استفاده از این قابلیت، ابتدا باید کانال دیتابیس را در تنظیمات وصل کنید.');
+              alert("برای استفاده از این قابلیت، ابتدا باید کانال دیتابیس را در تنظیمات وصل کنید.");
               setIsUploading(false);
               return;
           }
 
-          try {
-              // Usually catalogs are PDFs (Documents) or Images
-              const type = file.type.includes('image') ? 'image' : 'document';
-              const fileId = await telegramService.uploadToDb(token, dbChannel, file, type);
-              
-              if (fileId) {
-                  updateInquiryConfig({ 
-                      catalogFileId: fileId,
-                      catalogFileName: file.name,
-                      catalogType: type
-                  });
-              } else {
-                  alert('آپلود فایل در کانال دیتابیس با خطا مواجه شد.');
-              }
-          } catch (err) {
-              console.error(err);
-              alert('خطا در ارتباط با تلگرام.');
-          }
+          const res = await telegramService.uploadMediaToChannel(token, dbChannel, file);
           setIsUploading(false);
-          e.target.value = '';
+
+          if (res.success && res.fileId) {
+              updateInquiryConfig({ catalogFileId: res.fileId });
+              alert("کاتالوگ با موفقیت در دیتابیس آپلود و ذخیره شد.");
+          } else {
+              alert("خطا در آپلود کاتالوگ: " + (res.error || "ناشناخته"));
+          }
+          e.target.value = "";
       }
   };
 
-  const removeMedia = (id: string) => {
-    updateMenu(currentMenuId, { media: currentMenu.media.filter(m => m.id !== id) });
-  };
-
-  const handleSuggest = async () => {
-    if (!currentMenu.content) return;
-    setLoadingSuggestions(true);
-    const result = await suggestButtonLabels(currentMenu.content);
-    if(result.length > 0) {
-        const btns = result.slice(0, 2).map((text, i) => ({
-             id: Date.now() + i + '', text, type: 'callback' as const
-        }));
-        updateMenu(currentMenuId, {
-            rows: [...currentMenu.rows, { id: Date.now().toString(), buttons: btns }]
-        });
-    }
-    setLoadingSuggestions(false);
-  };
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-6 h-[calc(100vh-140px)] animate-fade-in pb-10 relative">
-      
-      {/* ... (Modal code remains same) ... */}
-      {editingFormId && forms[editingFormId] && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-              {/* ... (Form Designer Modal Content - Unchanged) ... */}
-              <div className="bg-[#1e293b] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
-                  {/* Header */}
-                  <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5 rounded-t-2xl">
-                      <div>
-                        <h3 className="text-xl font-bold text-white flex items-center gap-2"><ListChecks size={24} className="text-green-400"/> طراحی سوالات فرم</h3>
-                        <p className="text-xs text-slate-400 mt-1">شناسه فرم: <span className="font-mono text-white/50">{editingFormId}</span></p>
-                      </div>
-                      <button onClick={() => setEditingFormId(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white"><X size={20}/></button>
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-                      <div className="bg-slate-800/40 border border-white/10 rounded-xl p-4 space-y-4">
-                          <div>
-                              <label className="text-sm text-slate-300 font-bold mb-1.5 block">
-                                  عنوان فرم
-                              </label>
-                              <input 
-                                  type="text" 
-                                  value={forms[editingFormId].title || ''}
-                                  onChange={(e) => updateForm(editingFormId, { title: e.target.value })}
-                                  placeholder="مثلاً: فرم ثبت نام / نظرسنجی"
-                                  className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-white text-sm outline-none focus:border-blue-500"
-                              />
-                          </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start relative pb-12">
+      <input type="file" ref={fileInputRef} onChange={handleMediaUpload} className="hidden" accept="image/*,video/*,audio/*" />
 
-                          <div className="pt-2 border-t border-white/5">
-                              <label className="flex items-center gap-3 cursor-pointer">
-                                  <input 
-                                      type="checkbox"
-                                      checked={!!forms[editingFormId].visibleInMiniApp}
-                                      onChange={(e) => updateForm(editingFormId, { visibleInMiniApp: e.target.checked })}
-                                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-white/20"
-                                  />
-                                  <span className="text-sm font-medium text-white">نمایش در Mini App</span>
-                              </label>
-                              <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed bg-white/5 p-2.5 rounded-lg border border-white/5">
-                                  فقط فرمهایی که همهی سوالاتشون از نوع متن، عدد، تاریخ، انتخاب از لیست یا چکباکس باشه، داخل Mini App قابلنمایشن؛ فرمهایی که سوال عکس/ویدیو/فایل/موقعیت مکانی دارن، حتی با این سوییچ فعال، فقط داخل خود چت جواب داده میشن.
-                              </p>
-                          </div>
-                      </div>
+<FormDesignerModal
+        editingFormId={editingFormId}
+        forms={forms}
+        setEditingFormId={setEditingFormId}
+        updateForm={updateForm}
+        updateQuestion={updateQuestion}
+        addQuestion={addQuestion}
+        removeQuestion={removeQuestion}
+      />
 
-                      <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4">
-                          <label className="text-sm text-blue-300 font-bold mb-2 block flex items-center gap-2">
-                              <UserCog size={16}/> مقصد ارسال پاسخ‌ها (آیدی ادمین)
-                          </label>
-                          <input 
-                              type="text" 
-                              value={forms[editingFormId].adminId}
-                              onChange={(e) => updateForm(editingFormId, { adminId: e.target.value })}
-                              placeholder="مثلا: 123456789 یا @admin_username"
-                              className="w-full bg-black/20 border border-blue-500/30 rounded-lg p-3 text-white text-left dir-ltr placeholder-white/30 focus:outline-none focus:border-blue-400"
-                              dir="ltr"
-                          />
-                          <p className="text-[10px] text-blue-300/60 mt-2">* پاسخ‌های کاربران به صورت خودکار به این آیدی در تلگرام فوروارد می‌شود. (قابلیت پاسخگویی)</p>
-                      </div>
+      <NewProductModal
+        isOpen={isNewProductModalOpen}
+        onClose={() => setIsNewProductModalOpen(false)}
+        onSubmit={handleQuickProductSave}
+        prodName={prodName}
+        setProdName={setProdName}
+        prodPrice={prodPrice}
+        setProdPrice={setProdPrice}
+        prodDesc={prodDesc}
+        setProdDesc={setProdDesc}
+        prodCategory={prodCategory}
+        setProdCategory={setProdCategory}
+        prodPostConfirmMenuId={prodPostConfirmMenuId}
+        setProdPostConfirmMenuId={setProdPostConfirmMenuId}
+        prodPostOrderFormId={prodPostOrderFormId}
+        setProdPostOrderFormId={setProdPostOrderFormId}
+        prodImages={prodImages}
+        handleRemoveProdImage={handleRemoveProdImage}
+        prodFileInputRef={prodFileInputRef}
+        handleProdImageUpload={handleProdImageUpload}
+        isProdUploading={isProdUploading}
+        prodManualUrl={prodManualUrl}
+        setProdManualUrl={setProdManualUrl}
+        handleAddProdManualUrl={handleAddProdManualUrl}
+        menus={menus}
+        forms={forms}
+      />
 
-                      <div className="space-y-3">
-                          <div className="flex justify-between items-end">
-                              <label className="text-sm text-slate-400 font-bold">لیست سوالات</label>
-                              <span className="text-xs text-slate-500">{forms[editingFormId].questions.length} سوال</span>
-                          </div>
-                          
-                          {forms[editingFormId].questions.map((q, idx) => (
-                              <div key={q.id} className="group flex flex-col md:flex-row items-start gap-3 bg-white/5 border border-white/5 rounded-xl p-3 hover:border-white/20 transition-all">
-                                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-slate-400 mt-2 shrink-0">
-                                      {idx + 1}
-                                  </div>
-                                  
-                                  <div className="flex-1 w-full space-y-2">
-                                      <textarea 
-                                          value={q.text}
-                                          onChange={(e) => updateQuestion(editingFormId, q.id, { text: e.target.value })}
-                                          className="w-full bg-transparent border-b border-white/10 outline-none text-white text-sm resize-none h-10 py-1"
-                                          placeholder="متن سوال را اینجا بنویسید..."
-                                      />
-                                      
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-[10px] text-slate-500">نوع پاسخ:</span>
-                                          <select 
-                                            value={q.type}
-                                            onChange={(e) => {
-                                              const newType = e.target.value as any;
-                                              updateQuestion(editingFormId, q.id, { 
-                                                  type: newType,
-                                                  options: (newType === 'select' || newType === 'checkbox') ? (q.options || []) : undefined
-                                              });
-                                            }}
-                                            className="bg-black/20 text-xs text-white border border-white/10 rounded p-1 outline-none"
-                                          >
-                                              <option value="text">✏️ متن</option>
-                                              <option value="number">🔢 عدد</option>
-                                              <option value="photo">🖼 عکس</option>
-                                              <option value="document">📎 فایل</option>
-                                              <option value="video">📹 ویدیو</option>
-                                              <option value="audio">🎙️ صدا</option>
-                                              <option value="location">📍 موقعیت مکانی</option>
-                                              <option value="date">📅 تاریخ</option>
-                                              <option value="select">☑️ انتخاب از لیست (تک‌گزینه‌ای)</option>
-                                              <option value="checkbox">✅ انتخاب چندگزینه‌ای (چک‌باکس)</option>
-                                          </select>
-                                      </div>
+      <ButtonPreviewModal
+        previewModal={previewModal}
+        onClose={() => { setPreviewModal(null); setSimFormStep(0); setSimFormAnswers([]); }}
+        forms={forms}
+        simFormStep={simFormStep}
+        simFormAnswers={simFormAnswers}
+        handleSimFormSubmit={handleSimFormSubmit}
+      />
 
-                                      {(q.type === 'select' || q.type === 'checkbox') && (
-                                          <div className="mt-3 p-3 bg-black/20 border border-white/10 rounded-xl space-y-2">
-                                              <label className="text-xs text-slate-300 font-medium block">
-                                                  گزینه‌های قابل انتخاب ({q.type === 'select' ? 'تک‌گزینه‌ای' : 'چندگزینه‌ای'}):
-                                              </label>
-                                              <div className="space-y-1.5">
-                                                  {(q.options || []).map((opt, optIdx) => (
-                                                      <div key={optIdx} className="flex items-center gap-2 bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/5 text-xs text-white">
-                                                          <span className="flex-1 text-right">{opt}</span>
-                                                          <button
-                                                              type="button"
-                                                              onClick={() => {
-                                                                  const newOpts = (q.options || []).filter((_, i) => i !== optIdx);
-                                                                  updateQuestion(editingFormId, q.id, { options: newOpts });
-                                                              }}
-                                                              className="text-red-400 hover:text-red-300 p-0.5 rounded hover:bg-white/10 transition-colors"
-                                                              title="حذف گزینه"
-                                                          >
-                                                              <X size={14} />
-                                                          </button>
-                                                      </div>
-                                                  ))}
-                                                  {(q.options || []).length === 0 && (
-                                                      <p className="text-[11px] text-slate-500 italic">هنوز گزینه‌ای تعریف نشده است.</p>
-                                                  )}
-                                              </div>
-                                              <div className="flex gap-2 pt-1">
-                                                  <input
-                                                      type="text"
-                                                      id={`new-opt-${q.id}`}
-                                                      placeholder="عنوان گزینه جدید..."
-                                                      className="flex-1 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-500"
-                                                      onKeyDown={(e) => {
-                                                          if (e.key === 'Enter') {
-                                                              e.preventDefault();
-                                                              const input = e.currentTarget;
-                                                              const val = input.value.trim();
-                                                              if (val) {
-                                                                  const cur = q.options || [];
-                                                                  updateQuestion(editingFormId, q.id, { options: [...cur, val] });
-                                                                  input.value = '';
-                                                              }
-                                                          }
-                                                      }}
-                                                  />
-                                                  <button
-                                                      type="button"
-                                                      onClick={() => {
-                                                          const input = document.getElementById(`new-opt-${q.id}`) as HTMLInputElement;
-                                                          if (input && input.value.trim()) {
-                                                              const cur = q.options || [];
-                                                              updateQuestion(editingFormId, q.id, { options: [...cur, input.value.trim()] });
-                                                              input.value = '';
-                                                          }
-                                                      }}
-                                                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0"
-                                                  >
-                                                      افزودن
-                                                  </button>
-                                              </div>
-                                          </div>
-                                      )}
-                                  </div>
-
-                                  <button 
-                                      onClick={() => removeQuestion(editingFormId, q.id)}
-                                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all self-start md:self-center"
-                                      title="حذف سوال"
-                                  >
-                                      <Trash2 size={16} />
-                                  </button>
-                              </div>
-                          ))}
-
-                          <button 
-                              onClick={() => addQuestion(editingFormId)}
-                              className="w-full py-3 border-2 border-dashed border-white/10 hover:border-white/30 rounded-xl text-slate-400 hover:text-white transition-all flex items-center justify-center gap-2 text-sm font-bold"
-                          >
-                              <Plus size={16} />
-                              افزودن سوال جدید
-                          </button>
-                      </div>
-                  </div>
-
-                  <div className="p-4 border-t border-white/5 bg-white/5 rounded-b-2xl flex justify-end">
-                      <button 
-                          onClick={() => setEditingFormId(null)}
-                          className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl shadow-lg shadow-green-600/20 transition-all font-bold flex items-center gap-2"
-                      >
-                          <Check size={18} />
-                          ذخیره و بستن
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-      
-      {/* Quick Product Creation Modal */}
-      {isNewProductModalOpen && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-[#1e293b] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden flex flex-col shadow-2xl">
-                  <div className="flex justify-between items-center p-5 border-b border-white/5 bg-[#0f172a]">
-                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                          <ShoppingBag className="text-blue-500" size={20} />
-                          افزودن محصول جدید به فروشگاه
-                      </h3>
-                      <button
-                          onClick={() => setIsNewProductModalOpen(false)}
-                          className="text-slate-400 hover:text-white transition-colors"
-                      >
-                          <X size={20} />
-                      </button>
-                  </div>
-
-                  <form onSubmit={handleQuickProductSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-                      <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">نام محصول <span className="text-red-500">*</span></label>
-                          <input
-                              type="text"
-                              value={prodName}
-                              onChange={e => setProdName(e.target.value)}
-                              placeholder="مثال: اشتراک یک‌ماهه طلایی"
-                              required
-                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
-                          />
-                      </div>
-
-                      <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">قیمت (به تومان) <span className="text-red-500">*</span></label>
-                          <input
-                              type="number"
-                              value={prodPrice}
-                              onChange={e => setProdPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                              placeholder="مثال: ۵۰۰۰۰"
-                              required
-                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors text-right"
-                              dir="ltr"
-                          />
-                      </div>
-
-                      <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">توضیحات محصول</label>
-                          <textarea
-                              value={prodDesc}
-                              onChange={e => setProdDesc(e.target.value)}
-                              placeholder="توضیحات مربوط به محصول..."
-                              rows={3}
-                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl p-4 text-sm outline-none focus:border-blue-500 transition-colors"
-                          />
-                      </div>
-
-                      <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">دسته‌بندی (اختیاری)</label>
-                          <input
-                              type="text"
-                              value={prodCategory}
-                              onChange={e => setProdCategory(e.target.value)}
-                              placeholder="مثال: دیجیتال، فیزیکی، سرویس"
-                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
-                          />
-                      </div>
-
-                      <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">منوی بعد از تایید (اختیاری)</label>
-                          <select
-                              value={prodPostConfirmMenuId}
-                              onChange={e => setProdPostConfirmMenuId(e.target.value)}
-                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
-                          >
-                              <option value="">پیش‌فرض سراسری (تنظیمات)</option>
-                              {Object.entries(menus).map(([id, menu]) => (
-                                  <option key={id} value={id}>
-                                      {menu.title || menu.content || id} ({id})
-                                  </option>
-                              ))}
-                          </select>
-                      </div>
-
-                      <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">فرم بعد از تایید (اختیاری)</label>
-                          <select
-                              value={prodPostOrderFormId}
-                              onChange={e => setProdPostOrderFormId(e.target.value)}
-                              className="w-full bg-[#0f172a] border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
-                          >
-                              <option value="">پیش‌فرض سراسری (تنظیمات)</option>
-                              {Object.entries(forms).map(([id, form]) => (
-                                  <option key={id} value={id}>
-                                      {form.title || id} ({id})
-                                  </option>
-                              ))}
-                          </select>
-                          <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                              اگر اینجا چیزی انتخاب نکنید، همان تنظیم پیش‌فرضی که در صفحه تنظیمات گذاشته‌اید استفاده می‌شود. برای هر محصول می‌توانید جدا مشخص کنید.
-                          </p>
-                      </div>
-
-                      <div>
-                          <div className="flex justify-between items-center mb-1.5">
-                              <label className="block text-xs text-slate-400">تصاویر محصول (آپلود تا ۱۰ عکس)</label>
-                              <span className="text-[10px] text-blue-400 font-medium">{prodImages.length} / ۱۰ عکس</span>
-                          </div>
-                          
-                          <div className="space-y-2">
-                              {/* Thumbnails Row */}
-                              {prodImages.length > 0 && (
-                                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                                      {prodImages.map((img, idx) => (
-                                          <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-900 border border-white/10 shrink-0 group">
-                                              {getDisplayableImageUrl(img) ? (
-                                                  <img src={getDisplayableImageUrl(img) || img} alt={`عکس ${idx + 1}`} className="w-full h-full object-cover" />
-                                              ) : (
-                                                  <div className="w-full h-full flex flex-col items-center justify-center p-0.5 text-center bg-blue-500/10 text-blue-400 text-[8px] font-mono">
-                                                      <ImageIcon size={12} />
-                                                  </div>
-                                              )}
-                                              <button
-                                                  type="button"
-                                                  onClick={() => handleRemoveProdImage(idx)}
-                                                  className="absolute top-0.5 right-0.5 bg-red-600/80 hover:bg-red-600 text-white p-0.5 rounded-full transition-all"
-                                                  title="حذف"
-                                              >
-                                                  <X size={10} />
-                                              </button>
-                                          </div>
-                                      ))}
-                                  </div>
-                              )}
-
-                              <div className="flex gap-2">
-                                  <input
-                                      type="file"
-                                      accept="image/*"
-                                      multiple
-                                      ref={prodFileInputRef}
-                                      onChange={handleProdImageUpload}
-                                      className="hidden"
-                                  />
-                                  <button
-                                      type="button"
-                                      onClick={() => prodFileInputRef.current?.click()}
-                                      disabled={isProdUploading || prodImages.length >= 10}
-                                      className="flex-1 py-2 px-3 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 border border-blue-500/20 transition-all text-xs font-medium flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                                  >
-                                      {isProdUploading ? <span>⏳ در حال آپلود...</span> : <span>📤 آپلود عکس از گالری (چندتایی)</span>}
-                                  </button>
-                              </div>
-                              <div className="flex gap-2">
-                                  <input
-                                      type="text"
-                                      value={prodManualUrl}
-                                      onChange={e => setProdManualUrl(e.target.value)}
-                                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddProdManualUrl(); } }}
-                                      placeholder="یا آدرس عکس: https://..."
-                                      className="flex-1 bg-[#0f172a] border border-white/10 text-white rounded-xl px-3 py-1.5 text-xs outline-none focus:border-blue-500 transition-colors text-right"
-                                      dir="ltr"
-                                  />
-                                  <button
-                                      type="button"
-                                      onClick={handleAddProdManualUrl}
-                                      disabled={!prodManualUrl.trim() || prodImages.length >= 10}
-                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium transition-all disabled:opacity-50"
-                                  >
-                                      افزودن
-                                  </button>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
-                          <button
-                              type="button"
-                              onClick={() => setIsNewProductModalOpen(false)}
-                              className="px-4 py-2 rounded-xl text-slate-300 hover:text-white text-sm font-medium transition-colors"
-                          >
-                              انصراف
-                          </button>
-                          <button
-                              type="submit"
-                              className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-medium transition-all shadow-lg shadow-blue-600/20 flex items-center gap-1.5"
-                          >
-                              <Check size={16} />
-                              ذخیره و انتخاب برای دکمه
-                          </button>
-                      </div>
-                  </form>
-              </div>
-          </div>
-      )}
-
-      {/* Preview / Simulation Modal */}
-      {previewModal && (
-          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-[#1e293b] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl">
-                  <div className="flex justify-between items-center p-4 border-b border-white/5 bg-[#0f172a]">
-                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                          <Eye size={16} className="text-green-400" />
-                          {previewModal.type === 'form' ? 'پیش‌نمایش تعاملی فرم' : previewModal.type === 'link' ? 'پیش‌نمایش لینک' : 'پیش‌نمایش درخواست'}
-                      </h3>
-                      <button
-                          onClick={() => { setPreviewModal(null); setSimFormStep(0); setSimFormAnswers([]); }}
-                          className="text-slate-400 hover:text-white transition-colors"
-                      >
-                          <X size={18} />
-                      </button>
-                  </div>
-
-                  <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
-                      {previewModal.type === 'form' && (() => {
-                          const form = forms[previewModal.value];
-                          if (!form) {
-                              return <p className="text-xs text-red-400">فرمی با این شناسه یافت نشد ({previewModal.value}).</p>;
-                          }
-                          const qCount = form.questions.length;
-                          if (qCount === 0) {
-                              return <p className="text-xs text-slate-400">این فرم هیچ سوالی ندارد.</p>;
-                          }
-
-                          if (simFormStep >= qCount) {
-                              return (
-                                  <div className="space-y-4 text-center py-2">
-                                      <div className="w-12 h-12 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-                                          ✓
-                                      </div>
-                                      <div>
-                                          <h4 className="text-sm font-bold text-white mb-1">تکمیل فرم با موفقیت!</h4>
-                                          <p className="text-xs text-slate-400">پاسخ‌ها برای ادمین ({form.adminId || 'تعریف نشده'}) فوروارد می‌شوند.</p>
-                                      </div>
-                                      <div className="bg-black/30 p-3 rounded-xl border border-white/10 text-right space-y-2 text-xs">
-                                          <p className="font-bold text-slate-300 border-b border-white/10 pb-1">خلاصه پاسخ‌های شما:</p>
-                                          {form.questions.map((q, idx) => (
-                                              <div key={q.id} className="text-slate-400">
-                                                  <span className="text-slate-300 font-medium">{q.text}: </span>
-                                                  <span className="text-blue-300">{simFormAnswers[idx] || 'پاسخ داده نشده'}</span>
-                                              </div>
-                                          ))}
-                                      </div>
-                                      <button
-                                          onClick={() => { setPreviewModal(null); setSimFormStep(0); setSimFormAnswers([]); }}
-                                          className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-600/20"
-                                      >
-                                          بستن پیش‌نمایش
-                                      </button>
-                                  </div>
-                              );
-                          }
-
-                          const currentQ = form.questions[simFormStep];
-
-                          return (
-                              <div className="space-y-4">
-                                  <div className="flex justify-between items-center text-xs text-slate-400 border-b border-white/5 pb-2">
-                                      <span>سوال {simFormStep + 1} از {qCount}</span>
-                                      <span className="text-blue-400 font-bold">{form.title}</span>
-                                  </div>
-
-                                  <div className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-3">
-                                      <p className="text-sm text-white font-medium">{currentQ.text}</p>
-
-                                      {currentQ.type === 'text' && (
-                                          <div className="space-y-2">
-                                              <input
-                                                  type="text"
-                                                  id="sim-input-text"
-                                                  placeholder="پاسخ خود را بنویسید..."
-                                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-blue-500"
-                                                  onKeyDown={(e) => {
-                                                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                          handleSimFormSubmit(e.currentTarget.value.trim());
-                                                          e.currentTarget.value = '';
-                                                      }
-                                                  }}
-                                              />
-                                              <button
-                                                  onClick={() => {
-                                                      const el = document.getElementById('sim-input-text') as HTMLInputElement;
-                                                      const val = el?.value.trim() || 'متن نمونه پاسخ';
-                                                      handleSimFormSubmit(val);
-                                                  }}
-                                                  className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all"
-                                              >
-                                                  ارسال پاسخ متنی (شبیه‌سازی)
-                                              </button>
-                                          </div>
-                                      )}
-
-                                      {currentQ.type === 'number' && (
-                                          <div className="space-y-2">
-                                              <input
-                                                  type="number"
-                                                  id="sim-input-num"
-                                                  placeholder="یک عدد وارد کنید..."
-                                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-blue-500 text-left dir-ltr"
-                                                  dir="ltr"
-                                                  onKeyDown={(e) => {
-                                                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                          handleSimFormSubmit(e.currentTarget.value.trim());
-                                                          e.currentTarget.value = '';
-                                                      }
-                                                  }}
-                                              />
-                                              <button
-                                                  onClick={() => {
-                                                      const el = document.getElementById('sim-input-num') as HTMLInputElement;
-                                                      const val = el?.value.trim() || '12345';
-                                                      handleSimFormSubmit(val);
-                                                  }}
-                                                  className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all"
-                                              >
-                                                  ارسال عدد (شبیه‌سازی)
-                                              </button>
-                                          </div>
-                                      )}
-
-                                      {currentQ.type === 'photo' && (
-                                          <button
-                                              onClick={() => handleSimFormSubmit('🖼 [عکس ارسال شد]')}
-                                              className="w-full py-3 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                                          >
-                                              <ImageIcon size={16} />
-                                              ارسال عکس (شبیه‌سازی)
-                                          </button>
-                                      )}
-
-                                      {currentQ.type === 'document' && (
-                                          <button
-                                              onClick={() => handleSimFormSubmit('📎 [فایل ارسال شد]')}
-                                              className="w-full py-3 bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                                          >
-                                              <FileText size={16} />
-                                              ارسال فایل سند (شبیه‌سازی)
-                                          </button>
-                                      )}
-
-                                      {currentQ.type === 'video' && (
-                                          <button
-                                              onClick={() => handleSimFormSubmit('📹 [ویدیو ارسال شد]')}
-                                              className="w-full py-3 bg-red-600/20 border border-red-500/30 text-red-300 hover:bg-red-600/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                                          >
-                                              <Video size={16} />
-                                              ارسال ویدیو (شبیه‌سازی)
-                                          </button>
-                                      )}
-
-                                      {currentQ.type === 'audio' && (
-                                          <button
-                                              onClick={() => handleSimFormSubmit('🎙️ [صدا ارسال شد]')}
-                                              className="w-full py-3 bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                                          >
-                                              <Music size={16} />
-                                              ارسال پیام صوتی (شبیه‌سازی)
-                                          </button>
-                                      )}
-
-                                      {currentQ.type === 'location' && (
-                                          <div className="space-y-3 text-center p-2">
-                                              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center gap-2 text-xs text-amber-300">
-                                                  <span>📍</span>
-                                                  <span>کاربر موقعیت خودش رو می‌فرسته</span>
-                                              </div>
-                                              <button
-                                                  onClick={() => handleSimFormSubmit('📍 موقعیت: Lat: 35.6892, Lng: 51.3890')}
-                                                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20"
-                                              >
-                                                  <span>📍</span>
-                                                  ارسال موقعیت مکانی من (شبیه‌سازی)
-                                              </button>
-                                          </div>
-                                      )}
-
-                                      {currentQ.type === 'date' && (
-                                          <div className="space-y-3">
-                                              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center gap-2 text-xs text-blue-300">
-                                                  <span>📅</span>
-                                                  <span>انتخاب تاریخ توسط کاربر</span>
-                                              </div>
-                                              <input
-                                                  type="date"
-                                                  id="sim-input-date"
-                                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-blue-500"
-                                              />
-                                              <button
-                                                  onClick={() => {
-                                                      const el = document.getElementById('sim-input-date') as HTMLInputElement;
-                                                      const val = el?.value || new Date().toISOString().split('T')[0];
-                                                      handleSimFormSubmit(`📅 تاریخ: ${val}`);
-                                                  }}
-                                                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-600/20"
-                                              >
-                                                  تایید و ارسال تاریخ
-                                              </button>
-                                          </div>
-                                      )}
-
-                                      {currentQ.type === 'select' && (
-                                          <div className="space-y-2">
-                                              <p className="text-[11px] text-slate-400 mb-2">لطفاً یکی از گزینه‌های زیر را انتخاب کنید:</p>
-                                              {(currentQ.options && currentQ.options.length > 0) ? (
-                                                  <div className="grid grid-cols-1 gap-2">
-                                                      {currentQ.options.map((opt, oIdx) => (
-                                                          <button
-                                                              key={oIdx}
-                                                              onClick={() => handleSimFormSubmit(`☑️ ${opt}`)}
-                                                              className="w-full py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-200 rounded-xl text-xs font-medium text-right transition-all flex items-center justify-between"
-                                                          >
-                                                              <span>{opt}</span>
-                                                              <span className="text-[10px] opacity-60">انتخاب ➔</span>
-                                                          </button>
-                                                      ))}
-                                                  </div>
-                                              ) : (
-                                                  <div className="text-center p-3 border border-dashed border-white/10 rounded-xl text-slate-400 text-xs">
-                                                      هیچ گزینه‌ای برای این سوال ثبت نشده است.
-                                                      <button
-                                                          onClick={() => handleSimFormSubmit('☑️ گزینه بدون عنوان')}
-                                                          className="block mx-auto mt-2 text-[11px] text-blue-400 hover:underline"
-                                                      >
-                                                          رد شدن از این سوال
-                                                      </button>
-                                                  </div>
-                                              )}
-                                          </div>
-                                      )}
-
-                                      {currentQ.type === 'checkbox' && (
-                                          <div className="space-y-3">
-                                              <p className="text-[11px] text-slate-400 mb-1">یک یا چند گزینه را علامت بزنید و تایید کنید:</p>
-                                              {(currentQ.options && currentQ.options.length > 0) ? (
-                                                  <FormCheckboxSimulator
-                                                      options={currentQ.options}
-                                                      onSubmit={(selected) => {
-                                                          handleSimFormSubmit(`✅ گزینه‌ها: ${selected.join(', ')}`);
-                                                      }}
-                                                  />
-                                              ) : (
-                                                  <div className="text-center p-3 border border-dashed border-white/10 rounded-xl text-slate-400 text-xs">
-                                                      هیچ گزینه‌ای برای این سوال ثبت نشده است.
-                                                      <button
-                                                          onClick={() => handleSimFormSubmit('✅ هیچ گزینه‌ای انتخاب نشد')}
-                                                          className="block mx-auto mt-2 text-[11px] text-blue-400 hover:underline"
-                                                      >
-                                                          رد شدن از این سوال
-                                                      </button>
-                                                  </div>
-                                              )}
-                                          </div>
-                                      )}
-                                  </div>
-                              </div>
-                          );
-                      })()}
-
-                      {previewModal.type === 'link' && (
-                          <div className="text-center space-y-3 py-4">
-                              <Globe size={32} className="mx-auto text-blue-400 animate-bounce" />
-                              <p className="text-xs text-slate-300">انتقال به آدرس اینترنتی:</p>
-                              <p className="text-xs font-mono bg-black/40 p-2 rounded-lg text-blue-300 dir-ltr truncate">{previewModal.value}</p>
-                              <button
-                                  onClick={() => setPreviewModal(null)}
-                                  className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold transition-all"
-                              >
-                                  بستن
-                              </button>
-                          </div>
-                      )}
-
-                      {previewModal.type === 'inquiry' && (
-                          <div className="text-center space-y-3 py-4">
-                              <PhoneCall size={32} className="mx-auto text-emerald-400" />
-                              <p className="text-xs text-slate-300">درخواست کاتالوگ و استعلام برای کاربر ارسال شد (شبیه‌سازی).</p>
-                              <button
-                                  onClick={() => setPreviewModal(null)}
-                                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all"
-                              >
-                                  بستن
-                              </button>
-                          </div>
-                      )}
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* --- MENU SIDEBAR --- */}
-      {showMenuSidebar && (
-         <div className="absolute inset-y-0 right-0 w-64 bg-slate-900/95 backdrop-blur-xl border-l border-white/10 z-50 p-4 shadow-2xl animate-fade-in overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-               <h3 className="font-bold text-white flex items-center gap-2"><List size={18}/> لیست منوها</h3>
-               <button onClick={() => setShowMenuSidebar(false)}><ArrowRight className="text-white/50 hover:text-white" size={20}/></button>
-            </div>
-            <div className="space-y-2">
-               {Object.values(menus).map((m: MenuPage) => (
-                  <button 
-                     key={m.id}
-                     onClick={() => { setCurrentMenuId(m.id); setShowMenuSidebar(false); setHistory([]); }}
-                     className={`w-full text-right p-3 rounded-xl text-sm transition-colors border ${
-                        currentMenuId === m.id 
-                        ? 'bg-blue-600/20 border-blue-500/50 text-white' 
-                        : 'bg-white/5 border-transparent hover:bg-white/10 text-slate-300'
-                     }`}
-                  >
-                     {m.title}
-                     {m.id === 'root' && <span className="mr-2 text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded">خانه</span>}
-                  </button>
-               ))}
-            </div>
-         </div>
-      )}
+      <MenuSidebar
+        show={showMenuSidebar}
+        onClose={() => setShowMenuSidebar(false)}
+        menus={menus}
+        currentMenuId={currentMenuId}
+        onSelectMenu={(id) => {
+          setCurrentMenuId(id);
+          setShowMenuSidebar(false);
+          setHistory([]);
+        }}
+      />
       
       {/* --- EDITOR COLUMN --- */}
       <div className="space-y-6 overflow-y-auto pl-2 pr-1 pb-20 custom-scrollbar">
@@ -1603,731 +885,67 @@ export const KeyboardBuilder: React.FC = () => {
              {currentMenu.title}
            </span>
            {history.length > 0 && (
-              <button onClick={navigateBack} className="mr-auto flex items-center gap-1 text-xs bg-blue-500/10 text-blue-500 px-2 py-1 rounded-lg">
-                <ArrowRight size={12} />
-                بازگشت
-              </button>
-           )}
-        </div>
-        
-        {/* Editor Main Content */}
-        <GlassCard title={`ویرایش محتوای: ${currentMenu.title}`}>
-          <div className="space-y-4">
-             {/* ... (Title and Caption inputs - Unchanged) ... */}
-             <div>
-              <label className="text-sm dark:text-white/60 text-slate-500 mb-2 block">عنوان داخلی (برای مدیریت)</label>
-              <input 
-                type="text" 
-                value={currentMenu.title}
-                onChange={(e) => updateMenu(currentMenuId, { title: e.target.value })}
-                className="w-full dark:bg-black/20 bg-slate-50 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm dark:text-white/60 text-slate-500 mb-2 block">متن پیام (Caption)</label>
-              <textarea
-                id="message-content"
-                value={currentMenu.content}
-                onChange={(e) => updateMenu(currentMenuId, { content: e.target.value })}
-                className="w-full dark:bg-black/20 bg-slate-50 border dark:border-white/10 border-slate-300 rounded-xl p-3 min-h-[100px] focus:outline-none dark:text-white text-slate-800 resize-none font-vazir mb-2"
-                placeholder="متنی که ربات در این منو نمایش می‌دهد..."
-              />
-               <div className="flex flex-wrap gap-2 mb-3">
-                 {DYNAMIC_VARS.map(v => (
-                    <button
-                       key={v.code}
-                       onClick={() => insertVariable(v.code)}
-                       className="text-[10px] px-2 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full hover:bg-blue-500/20 transition-colors"
-                       title={`درج ${v.label}`}
-                    >
-                       {v.label} <span className="opacity-50 ml-1">{v.code}</span>
-                    </button>
-                 ))}
-              </div>
-
-               <button 
-                  onClick={handleSuggest}
-                  disabled={loadingSuggestions}
-                  className="text-xs flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors"
-                >
-                  <Sparkles size={12} />
-                  {loadingSuggestions ? 'در حال فکر کردن...' : 'پیشنهاد دکمه با هوش مصنوعی'}
+               <button onClick={navigateBack} className="mr-auto flex items-center gap-1 text-xs bg-blue-500/10 text-blue-500 px-2 py-1 rounded-lg">
+                 <ArrowRight size={12} />
+                 بازگشت
                </button>
-            </div>
-            
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm dark:text-white/60 text-slate-500 block">پیوست فایل</label>
-                  {isUploading && (
-                      <span className="text-xs text-blue-400 flex items-center gap-1 animate-pulse">
-                          <Cloud size={12}/> در حال آپلود به فضای ابری...
-                      </span>
-                  )}
-              </div>
-              
-              <div className="flex gap-2 mb-3">
-                 <label className="flex-1 cursor-pointer flex flex-col items-center justify-center p-3 border border-dashed dark:border-white/20 border-slate-300 rounded-xl hover:bg-white/5 transition-colors text-slate-500 dark:text-white/50">
-                    <ImageIcon size={20} className="mb-1" />
-                    <span className="text-xs">عکس</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleMediaUpload(e, 'image')} />
-                 </label>
-                 <label className="flex-1 cursor-pointer flex flex-col items-center justify-center p-3 border border-dashed dark:border-white/20 border-slate-300 rounded-xl hover:bg-white/5 transition-colors text-slate-500 dark:text-white/50">
-                    <Video size={20} className="mb-1" />
-                    <span className="text-xs">ویدیو</span>
-                    <input type="file" accept="video/*" className="hidden" onChange={(e) => handleMediaUpload(e, 'video')} />
-                 </label>
-                 <label className="flex-1 cursor-pointer flex flex-col items-center justify-center p-3 border border-dashed dark:border-white/20 border-slate-300 rounded-xl hover:bg-white/5 transition-colors text-slate-500 dark:text-white/50">
-                    <Music size={20} className="mb-1" />
-                    <span className="text-xs">صدا</span>
-                    <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleMediaUpload(e, 'audio')} />
-                 </label>
-              </div>
-              
-              {currentMenu.media.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {currentMenu.media.map(media => (
-                    <div key={media.id} className={`relative w-24 h-24 shrink-0 rounded-lg overflow-hidden border ${media.fileId ? 'border-green-500/50' : 'border-red-500/50 ring-2 ring-red-500/20'} group`}>
-                       {media.type === 'image' && <img src={media.previewUrl || media.url} className="w-full h-full object-cover" alt="preview" />}
-                       {media.type === 'video' && <video src={media.previewUrl || media.url} className="w-full h-full object-cover" />}
-                       {media.type === 'audio' && <div className="w-full h-full bg-orange-500/20 flex items-center justify-center text-orange-400"><Music size={20}/></div>}
-                       
-                       {/* Cloud Icon if uploaded to DB */}
-                       {media.fileId ? (
-                           <div className="absolute top-1 right-1 bg-green-500 text-white p-0.5 rounded-full z-10" title="ذخیره شده در کانال دیتابیس">
-                               <Cloud size={10} />
-                           </div>
-                       ) : (
-                           <div className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded-full z-10 animate-pulse" title="خطا: آپلود نشده! در تلگرام نمایش داده نمی‌شود.">
-                               <AlertTriangle size={10} />
-                           </div>
-                       )}
-
-                       {/* Fail Message Overlay */}
-                       {!media.fileId && (
-                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                               <span className="text-[8px] bg-red-600 text-white px-1 rounded shadow">آپلود نشد</span>
-                           </div>
-                       )}
-
-                       <button 
-                         onClick={() => removeMedia(media.id)}
-                         className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white z-20"
-                       >
-                         <Trash2 size={20} />
-                       </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </GlassCard>
-        
-        {/* ... (Keyboard Grid Builder & Button Config - Unchanged) ... */}
-        <GlassCard title="دکمه‌های این منو">
-           <div className="flex flex-wrap gap-2 mb-6">
-              {[1, 2, 3, 4].map(num => (
-                <button
-                  key={num}
-                  onClick={() => addRow(num)}
-                  className="flex-1 py-3 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-600/30 text-blue-500 dark:text-blue-300 rounded-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 min-w-[70px]"
-                >
-                  <div className="flex gap-0.5">
-                    {Array(num).fill(0).map((_, i) => (
-                      <div key={i} className="w-3 h-3 bg-current rounded-[2px]" />
-                    ))}
-                  </div>
-                  <span className="text-xs font-bold">{num} تایی</span>
-                </button>
-              ))}
-              <button
-                onClick={addSupportButton}
-                className="py-3 px-3 bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-600/30 text-emerald-500 dark:text-emerald-300 rounded-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 text-xs font-bold"
-                title="افزودن مستقیم دکمه پشتیبانی"
-              >
-                <div className="flex items-center gap-1">
-                  <span>💬</span>
-                </div>
-                <span>پشتیبانی</span>
-              </button>
-           </div>
-           
-           <div className="space-y-3">
-             {currentMenu.rows.length === 0 && (
-               <div className="text-center py-6 dark:text-white/20 text-slate-400 border-2 border-dashed dark:border-white/10 border-slate-300 rounded-xl mb-4">
-                 هنوز دکمه‌ای اضافه نکرده‌اید.
-               </div>
-             )}
-             
-             {currentMenu.rows.map((row, idx) => (
-               <div key={row.id} className="relative group">
-                   {/* Row Content */}
-                   <div className="flex gap-2 pr-8">
-                    {/* Row Controls */}
-                    <div className="absolute top-1/2 -translate-y-1/2 -right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => moveRowUp(idx)} disabled={idx === 0} className="p-1 text-slate-400 hover:text-white disabled:opacity-20"><ArrowUp size={14}/></button>
-                        <button onClick={() => moveRowDown(idx)} disabled={idx === currentMenu.rows.length - 1} className="p-1 text-slate-400 hover:text-white disabled:opacity-20"><ArrowDown size={14}/></button>
-                    </div>
-
-                    {row.buttons.map((btn) => (
-                      <button
-                        key={btn.id}
-                        onClick={() => setSelectedButton({ rowId: row.id, btnId: btn.id })}
-                        className={`
-                          flex-1 py-3 px-3 rounded-lg text-sm truncate transition-all
-                          flex items-center justify-center gap-2 relative overflow-hidden
-                          ${selectedButton?.btnId === btn.id 
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg scale-[1.02] ring-2 ring-white/20' 
-                            : 'dark:bg-white/5 bg-white border border-slate-200 dark:border-white/10 dark:hover:bg-white/10 hover:bg-slate-50 dark:text-white/80 text-slate-700'
-                          }
-                          ${btn.color === 'blue' ? 'border-r-4 border-r-blue-500' : ''}
-                          ${btn.color === 'green' ? 'border-r-4 border-r-green-500' : ''}
-                          ${btn.color === 'red' ? 'border-r-4 border-r-red-500' : ''}
-                          ${btn.color === 'gold' ? 'border-r-4 border-r-amber-400' : ''}
-                          ${btn.color === 'orange' ? 'border-r-4 border-r-orange-500' : ''}
-                        `}
-                      >
-                         {/* Icons */}
-                         {btn.type === 'submenu' && (
-                           <div className="absolute top-0 right-0 w-3 h-3 border-t-[3px] border-l-[3px] border-orange-500/50 rounded-tl-sm" />
-                         )}
-                         {btn.condition?.type && btn.condition.type !== 'none' && (
-                           <div className="absolute top-1 left-1 text-amber-400 bg-amber-500/20 px-1 py-0.5 rounded text-[10px] flex items-center gap-0.5" title="دکمه شرطی">
-                             <Zap size={10} />
-                           </div>
-                         )}
-                         
-                         {btn.type === 'link' && <LinkIcon size={12} className="opacity-50" />}
-                         {btn.type === 'submenu' && <Layers size={12} className="opacity-50 text-orange-400" />}
-                         {btn.type === 'product' && <ShoppingBag size={12} className="opacity-50 text-blue-400" />}
-                         {btn.type === 'form' && <FileText size={12} className="opacity-50" />}
-                         {btn.type === 'command' && <Command size={12} className="opacity-50" />}
-                         {btn.type === 'inquiry' && <PhoneCall size={12} className="opacity-50 text-green-400" />}
-                         {btn.type === 'api' && <Globe size={12} className="opacity-50 text-purple-400" />}
-                         {(btn.type === 'ticket' || (btn.type === 'callback' && btn.value === 'support')) && <MessageSquare size={12} className="opacity-50 text-blue-400" />}
-                         
-                         {getButtonDisplayText(btn)}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Right Side Actions */}
-                  <div className="absolute -left-16 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-lg p-1 backdrop-blur">
-                     <button 
-                       onClick={() => duplicateRow(row)}
-                       className="p-1.5 text-blue-400 hover:text-blue-300"
-                       title="کپی ردیف"
-                     >
-                       <Copy size={16} />
-                     </button>
-                     <button 
-                       onClick={() => removeRow(row.id)}
-                       className="p-1.5 text-red-400 hover:text-red-500"
-                       title="حذف"
-                     >
-                       <Trash2 size={16} />
-                     </button>
-                  </div>
-               </div>
-             ))}
-             
-             {/* Auto Nav Footer - VISUAL INDICATOR FOR USER */}
-             {currentMenuId !== 'root' && (
-                <div className="relative opacity-70 mt-4 border-t border-dashed dark:border-white/10 border-slate-300 pt-4">
-                    <div className="text-[10px] dark:text-slate-400 text-slate-500 mb-2 flex items-center gap-2">
-                    <Lock size={12}/> دکمه‌های ناوبری (سیستم به صورت خودکار اضافه می‌کند)
-                    </div>
-                    <div className="flex gap-2 cursor-not-allowed">
-                        <div className="flex-1 py-3 px-2 rounded-lg text-sm dark:bg-white/5 bg-slate-100 border dark:border-white/5 border-slate-200 dark:text-slate-500 text-slate-400 text-center flex items-center justify-center gap-2">🏠 منوی اصلی</div>
-                        <div className="flex-1 py-3 px-2 rounded-lg text-sm dark:bg-white/5 bg-slate-100 border dark:border-white/5 border-slate-200 dark:text-slate-500 text-slate-400 text-center flex items-center justify-center gap-2">🔙 بازگشت</div>
-                    </div>
-                </div>
-             )}
-           </div>
-        </GlassCard>
-        
-        {/* Button Config Panel */}
-        {selectedButton && getSelectedBtnObj() && (
-          <GlassCard 
-            title="ویژگی‌های دکمه" 
-            className="animate-slide-up border-blue-500/30"
-            action={
-              <button 
-                onClick={removeButton}
-                className="flex items-center gap-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <Trash2 size={14}/> حذف دکمه
-              </button>
-            }
-          >
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="col-span-1 md:col-span-2">
-                   <label className="text-xs dark:text-white/50 text-slate-500 mb-1 block">عنوان دکمه</label>
-                   {getSelectedBtnObj()!.type === 'product' ? (
-                      <div>
-                         <input 
-                            type="text" 
-                            disabled
-                            value={getButtonDisplayText(getSelectedBtnObj()!)}
-                            className="w-full dark:bg-white/5 bg-slate-200 border dark:border-white/10 border-slate-300 px-3 py-2 rounded-lg text-sm dark:text-slate-300 text-slate-600 font-medium cursor-not-allowed"
-                         />
-                         <p className="text-[11px] text-blue-400/90 mt-1 flex items-center gap-1">
-                            <span>💡</span>
-                            <span>این متن خودکار و همیشه براساس قیمت واقعی محصول بهروزه — نیازی به ویرایش نداره.</span>
-                         </p>
-                      </div>
-                   ) : (
-                      <input 
-                         type="text" 
-                         value={getSelectedBtnObj()!.text}
-                         onChange={(e) => updateCurrentButton({ text: e.target.value })}
-                         className="w-full bg-transparent border-b border-white/20 focus:border-blue-500 px-2 py-1 outline-none dark:text-white text-slate-800"
-                      />
-                   )}
-                </div>
-
-                <div>
-                   <label className="text-xs dark:text-white/50 text-slate-500 mb-1 block">نوع عملکرد</label>
-                   <select 
-                      value={
-                        getSelectedBtnObj()!.type === 'callback' && getSelectedBtnObj()!.value === 'support' 
-                          ? 'ticket' 
-                          : getSelectedBtnObj()!.type
-                      }
-                      onChange={(e) => {
-                        const newType = e.target.value as any;
-                        if (newType === 'ticket') {
-                          updateCurrentButton({
-                            type: 'callback',
-                            value: 'support',
-                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🎫 تیکت پشتیبانی',
-                            productId: undefined,
-                            apiUrl: undefined,
-                            webAppUrl: undefined
-                          });
-                        } else if (newType === 'webapp') {
-                          const licenseCacheStr = localStorage.getItem('license_cache') || '{}';
-                          let code = '';
-                          try { code = JSON.parse(licenseCacheStr).code || ''; } catch {}
-                          const webAppUrl = `${window.location.origin}/miniapp?code=${encodeURIComponent(code)}`;
-                          updateCurrentButton({
-                            type: 'webapp',
-                            webAppUrl: webAppUrl,
-                            value: webAppUrl,
-                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🛍 ورود به فروشگاه',
-                            productId: undefined,
-                            apiUrl: undefined
-                          });
-                        } else if (newType === 'api') {
-                          updateCurrentButton({
-                            type: 'api',
-                            apiUrl: getSelectedBtnObj()!.apiUrl || '',
-                            text: getSelectedBtnObj()!.text && getSelectedBtnObj()!.text !== 'دکمه جدید' ? getSelectedBtnObj()!.text : '🔗 فراخوانی API',
-                            productId: undefined,
-                            webAppUrl: undefined
-                          });
-                        } else if (newType === 'product') {
-                          const products = getProducts();
-                          const firstProd = products[0];
-                          if (firstProd) {
-                            updateCurrentButton({
-                              type: 'product',
-                              productId: firstProd.id,
-                              text: `🛒 ${firstProd.name} — ${firstProd.price.toLocaleString('fa-IR')} تومان`,
-                              apiUrl: undefined,
-                              webAppUrl: undefined
-                            });
-                          } else {
-                            updateCurrentButton({
-                              type: 'product',
-                              text: '🛒 انتخاب محصول...',
-                              apiUrl: undefined,
-                              webAppUrl: undefined
-                            });
-                          }
-                        } else {
-                          const curVal = getSelectedBtnObj()!.value === 'support' ? '' : getSelectedBtnObj()!.value;
-                          updateCurrentButton({ type: newType, value: curVal, productId: undefined, apiUrl: undefined, webAppUrl: undefined });
-                        }
-                      }}
-                      className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"
-                   >
-                      <option value="callback">نمایش پیام ساده (Callback)</option>
-                      <option value="submenu">زیر منو (دکمه‌های تو در تو)</option>
-                      <option value="webapp">🛍 باز کردن فروشگاه (Mini App)</option>
-                      <option value="product">🛒 محصول فروشگاهی</option>
-                      <option value="ticket">🎫 تیکت پشتیبانی</option>
-                      <option value="api">🔗 فراخوانی API/Webhook</option>
-                      <option value="link">لینک وب‌سایت (Url)</option>
-                      <option value="form">فرم دریافت اطلاعات</option>
-                      <option value="inquiry">📞 استعلام و خرید (ارسال کاتالوگ)</option>
-                      <option value="command">اجرای دستور (Command)</option>
-                   </select>
-                </div>
-
-                <div>
-                   <label className="text-xs dark:text-white/50 text-slate-500 mb-1 block">رنگ دکمه (ویژه تلگرام جدید 🎨)</label>
-                   <select 
-                      value={getSelectedBtnObj()!.color || 'default'}
-                      onChange={(e) => updateCurrentButton({ color: e.target.value as any })}
-                      className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"
-                   >
-                      <option value="default">شیشه‌ای پیش‌فرض (تاریک/آبی)</option>
-                      <option value="blue">🔵 آبی اقیانوسی (روشن)</option>
-                      <option value="green">🟢 سبز زمردی (پذیرش/موفقیت)</option>
-                      <option value="red">🔴 قرمز یاقوتی (لغو/هشدار)</option>
-                      <option value="gold">🟡 طلایی ستاره‌ای (پرایم/ستاره تلگرام)</option>
-                      <option value="orange">🟠 نارنجی پرانرژی (خرید/لینک ویژه)</option>
-                   </select>
-                   <p className="text-[10px] text-amber-500/90 mt-1 leading-relaxed">
-                      ⚠️ رنگ‌های طلایی و نارنجی فقط در پیش‌نمایش پنل دیده می‌شوند؛ تلگرام به صورت واقعی فقط آبی، سبز و قرمز را پشتیبانی می‌کند.
-                   </p>
-                </div>
-
-                <div>
-                   {getSelectedBtnObj()!.type === 'submenu' ? (
-                      <div className="mt-5">
-                         <button 
-                            onClick={() => {
-                               if (getSelectedBtnObj()!.targetMenuId) {
-                                  navigateTo(getSelectedBtnObj()!.targetMenuId!);
-                               }
-                            }}
-                            className="w-full bg-orange-600 hover:bg-orange-500 text-white p-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
-                         >
-                            <CornerUpRight size={16} />
-                            ویرایش محتوای زیر منو
-                         </button>
-                      </div>
-                   ) : getSelectedBtnObj()!.type === 'form' ? (
-                       <div className="mt-5">
-                           <button 
-                               onClick={() => setEditingFormId(getSelectedBtnObj()!.value || '')}
-                               className="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
-                           >
-                               <ListChecks size={16} />
-                               📝 طراحی سوالات فرم
-                           </button>
-                           <p className="text-[10px] text-slate-500 mt-2 text-center">شناسه فرم: {getSelectedBtnObj()!.value}</p>
-                       </div>
-                   ) : getSelectedBtnObj()!.type === 'product' ? (
-                       <div className="mt-2 space-y-3 col-span-1 md:col-span-2 bg-white/5 p-4 rounded-xl border border-white/10">
-                           <div className="flex items-center justify-between">
-                               <label className="text-xs font-bold text-white flex items-center gap-1.5">
-                                   <ShoppingBag size={15} className="text-blue-400" />
-                                   انتخاب محصول مرتبط با این دکمه
-                               </label>
-                               <button
-                                   type="button"
-                                   onClick={() => setIsNewProductModalOpen(true)}
-                                   className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all font-medium"
-                               >
-                                   <Plus size={14} />
-                                   افزودن محصول جدید
-                               </button>
-                           </div>
-
-                           <div className="max-h-56 overflow-y-auto space-y-2 custom-scrollbar pr-1 pt-1">
-                               {getProducts().length === 0 ? (
-                                   <div className="bg-black/20 border border-dashed border-white/10 rounded-xl p-4 text-center space-y-2">
-                                       <p className="text-xs text-slate-400">هیچ محصولی هنوز ثبت نشده است.</p>
-                                       <button
-                                           type="button"
-                                           onClick={() => setIsNewProductModalOpen(true)}
-                                           className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500/20 transition-colors"
-                                       >
-                                           + ساخت اولین محصول
-                                       </button>
-                                   </div>
-                               ) : (
-                                   getProducts().map((prod) => {
-                                       const isSelected = getSelectedBtnObj()!.productId === prod.id;
-                                       return (
-                                           <div
-                                               key={prod.id}
-                                               onClick={() => {
-                                                   updateCurrentButton({
-                                                       productId: prod.id,
-                                                       text: `🛒 ${prod.name} — ${prod.price.toLocaleString('fa-IR')} تومان`
-                                                   });
-                                               }}
-                                               className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                                                   isSelected
-                                                       ? 'bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/10'
-                                                       : 'bg-black/20 border-white/5 hover:bg-white/10 text-slate-300'
-                                               }`}
-                                           >
-                                               <div className="flex items-center gap-3">
-                                                   <div className="w-10 h-10 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                                                       {getDisplayableImageUrl(prod.imageUrl) ? (
-                                                           <img src={getDisplayableImageUrl(prod.imageUrl)!} alt={prod.name} className="w-full h-full object-cover" />
-                                                       ) : (
-                                                           <ShoppingBag size={18} className="text-blue-400" />
-                                                       )}
-                                                   </div>
-                                                   <div>
-                                                       <h5 className="text-xs font-bold text-white line-clamp-1">{prod.name}</h5>
-                                                       <p className="text-[10px] text-blue-400 font-medium mt-0.5">
-                                                           {prod.price.toLocaleString('fa-IR')} تومان
-                                                           {prod.category && <span className="text-slate-400 mr-2">({prod.category})</span>}
-                                                       </p>
-                                                   </div>
-                                               </div>
-                                               {isSelected && (
-                                                   <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0">
-                                                       <Check size={12} />
-                                                   </div>
-                                               )}
-                                           </div>
-                                       );
-                                   })
-                               )}
-                           </div>
-                       </div>
-                   ) : getSelectedBtnObj()!.type === 'inquiry' ? (
-                       <div className="mt-2 space-y-3 bg-white/5 p-3 rounded-xl border border-white/5 col-span-2 md:col-span-2">
-                           <div>
-                               <label className="text-xs text-slate-400 mb-1 block">آیدی ادمین فروش (جهت دریافت لید)</label>
-                               <input 
-                                   value={getSelectedBtnObj()!.inquiryConfig?.adminId || ''}
-                                   onChange={e => updateInquiryConfig({ adminId: e.target.value })}
-                                   className="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-white dir-ltr"
-                                   placeholder="123456789"
-                               />
-                           </div>
-                           <div>
-                               <label className="text-xs text-slate-400 mb-1 block">فایل کاتالوگ (PDF یا عکس)</label>
-                               <div className="flex gap-2 items-center">
-                                   <label className="flex-1 cursor-pointer bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-600/30 rounded p-2 text-xs flex items-center justify-center gap-2 transition-colors">
-                                       {isUploading ? <Cloud className="animate-bounce" size={14}/> : <Upload size={14}/>}
-                                       {isUploading ? 'در حال آپلود...' : 'آپلود کاتالوگ در دیتابیس'}
-                                       <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleCatalogUpload} disabled={isUploading} />
-                                   </label>
-                                   {getSelectedBtnObj()!.inquiryConfig?.catalogFileId && (
-                                       <div className="text-xs text-green-400 flex items-center gap-1">
-                                           <Check size={14}/> فایل ذخیره شد
-                                       </div>
-                                   )}
-                               </div>
-                           </div>
-                           <div>
-                               <label className="text-xs text-slate-400 mb-1 block">متن پاسخ خودکار به مشتری</label>
-                               <textarea 
-                                   value={getSelectedBtnObj()!.inquiryConfig?.responseText || ''}
-                                   onChange={e => updateInquiryConfig({ responseText: e.target.value })}
-                                   className="w-full h-20 bg-black/20 border border-white/10 rounded p-2 text-xs text-white resize-none"
-                               />
-                           </div>
-                       </div>
-                   ) : getSelectedBtnObj()!.type === 'webapp' ? (
-                       <div className="mt-2 space-y-2 bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-xl col-span-1 md:col-span-2">
-                           <label className="text-xs text-emerald-300 font-bold block flex items-center gap-1.5">
-                               <ShoppingBag size={15} />
-                               آدرس فروشگاه تلگرام (Mini App)
-                           </label>
-                           <input 
-                               type="text" 
-                               readOnly
-                               value={getSelectedBtnObj()!.webAppUrl || `${window.location.origin}/miniapp`}
-                               className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-emerald-200 text-left dir-ltr outline-none cursor-text font-mono"
-                               dir="ltr"
-                           />
-                           <p className="text-[11px] text-slate-300 leading-relaxed">
-                               این دکمه فروشگاه رو مستقیم داخل تلگرام (نه مرورگر) باز میکنه.
-                           </p>
-                       </div>
-                   ) : getSelectedBtnObj()!.type === 'api' ? (
-                       <div className="mt-2 space-y-2 bg-white/5 p-3 rounded-xl border border-white/10 col-span-1 md:col-span-2">
-                           <label className="text-xs text-slate-300 font-medium block">آدرس API / Webhook (URL)</label>
-                           <input 
-                               type="text" 
-                               value={getSelectedBtnObj()!.apiUrl || ''}
-                               onChange={e => updateCurrentButton({ apiUrl: e.target.value })}
-                               placeholder="https://api.example.com/webhook"
-                               className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-white text-left dir-ltr outline-none focus:border-blue-500"
-                               dir="ltr"
-                           />
-                           <p className="text-[10px] text-slate-400 leading-relaxed">
-                               با کلیک روی این دکمه توسط کاربر، یک درخواست POST به این آدرس ارسال می‌گردد.
-                           </p>
-                       </div>
-                   ) : (getSelectedBtnObj()!.type === 'ticket' || (getSelectedBtnObj()!.type === 'callback' && getSelectedBtnObj()!.value === 'support')) ? (
-                       <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl col-span-1 md:col-span-2 text-xs text-blue-300 space-y-1">
-                           <p className="font-bold flex items-center gap-1.5">
-                               <span>🎫</span>
-                               تیکت پشتیبانی ربات
-                           </p>
-                           <p className="text-slate-300 text-[11px] leading-relaxed">
-                               با کلیک کاربر روی این دکمه، جریان ثبت تیکت پشتیبانی (/support) مستقیماً برای وی شروع می‌شود.
-                           </p>
-                       </div>
-                   ) : (
-                     <>
-                        <label className="text-xs dark:text-white/50 text-slate-500 mb-1 block flex items-center gap-1">
-                            {getSelectedBtnObj()!.type === 'link' && <><Globe size={12}/> آدرس اینترنتی (https)</>}
-                            {getSelectedBtnObj()!.type === 'command' && <><Terminal size={12}/> نام دستور (بدون اسلش)</>}
-                            {getSelectedBtnObj()!.type === 'callback' && 'مقدار دکمه (Callback Data)'}
-                        </label>
-                        <div className="relative">
-                            <input 
-                                type="text" 
-                                value={getSelectedBtnObj()!.value || ''}
-                                onChange={(e) => updateCurrentButton({ value: e.target.value })}
-                                placeholder={
-                                    getSelectedBtnObj()!.type === 'link' ? 'https://google.com' :
-                                    getSelectedBtnObj()!.type === 'command' ? 'start' : 'data_123'
-                                }
-                                className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 pl-8 text-sm outline-none dark:text-white text-slate-800 text-left dir-ltr"
-                                dir="ltr"
-                            />
-                            <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-50">
-                                {getSelectedBtnObj()!.type === 'link' && <LinkIcon size={14}/>}
-                                {getSelectedBtnObj()!.type === 'command' && <span className="text-xs font-mono">/</span>}
-                            </div>
-                        </div>
-                     </>
-                   )}
-                </div>
-
-                {/* Button Condition Section */}
-                <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-white/10 space-y-3">
-                    <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                        <Zap size={14} />
-                        شرط نمایش دکمه (اختیاری)
-                    </label>
-                    <select
-                        value={getSelectedBtnObj()!.condition?.type || 'none'}
-                        onChange={(e) => {
-                            const condType = e.target.value as 'none' | 'order_status_confirmed' | 'product_category';
-                            if (condType === 'product_category') {
-                                updateCurrentButton({
-                                    condition: {
-                                        type: 'product_category',
-                                        value: getSelectedBtnObj()!.condition?.value || ''
-                                    }
-                                });
-                            } else {
-                                updateCurrentButton({
-                                    condition: { type: condType }
-                                });
-                            }
-                        }}
-                        className="w-full dark:bg-black/20 bg-slate-100 border dark:border-white/10 border-slate-300 rounded-lg p-2 text-sm outline-none dark:text-white text-slate-800"
-                    >
-                        <option value="none">همیشه نمایش بده (پیش‌فرض)</option>
-                        <option value="order_status_confirmed">فقط اگه سفارش تایید شده باشد</option>
-                        <option value="product_category">فقط برای دسته‌بندی محصول خاص</option>
-                    </select>
-
-                    {getSelectedBtnObj()!.condition?.type === 'order_status_confirmed' && (
-                        <p className="text-[11px] text-amber-300/80 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl leading-relaxed">
-                            💡 این فقط توی پیام‌های بعد از تایید سفارش اثر داره؛ توی منوهای عادی نادیده گرفته می‌شود.
-                        </p>
-                    )}
-
-                    {getSelectedBtnObj()!.condition?.type === 'product_category' && (
-                        <div className="space-y-2 pt-1">
-                            <input
-                                type="text"
-                                value={getSelectedBtnObj()!.condition?.value || ''}
-                                onChange={(e) => {
-                                    updateCurrentButton({
-                                        condition: {
-                                            type: 'product_category',
-                                            value: e.target.value
-                                        }
-                                    });
-                                }}
-                                placeholder="نام دسته‌بندی محصول (مثلاً: دیجیتال)"
-                                className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-sm text-white outline-none focus:border-blue-500"
-                            />
-                            <p className="text-[11px] text-amber-300/80 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl leading-relaxed">
-                                💡 فقط وقتی این دکمه بخشی از پیام بعد از تایید یه محصول با همین دسته‌بندی باشه نمایش داده میشه.
-                            </p>
-                        </div>
-                    )}
-                </div>
-             </div>
-          </GlassCard>
-        )}
-      </div>
-      
-      {/* ... Preview Column ... */}
-      <div className="relative flex flex-col items-center pt-8">
-          {/* ... (Unchanged Preview UI) ... */}
-           <div className="absolute top-0 flex items-center gap-2 bg-green-500/10 text-green-600 dark:text-green-400 px-4 py-1.5 rounded-full text-sm font-medium border border-green-500/20 shadow-sm animate-pulse cursor-pointer hover:bg-green-500/20 transition-colors">
-            <Eye size={16} />
-            پیش‌نمایش تعاملی (کلیک کنید)
+            )}
          </div>
          
-        <div className="telegram-simulator mt-8 w-[300px] bg-[#1c2431] rounded-[30px] border-[6px] border-[#252f3f] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] overflow-hidden relative h-[600px] flex flex-col shrink-0">
-               {/* MESSAGE BUBBLE */}
-               <div className="flex-1 bg-[#0e1621] p-2 overflow-y-auto space-y-2 bg-[url('https://web.telegram.org/img/bg_0.png')] bg-repeat custom-scrollbar mt-12">
-               <div className="bg-[#182533] rounded-tl-xl rounded-tr-xl rounded-br-xl rounded-bl-none max-w-[95%] shadow-sm overflow-hidden animate-slide-up">
-                  {/* Media */}
-                  {currentMenu.media.length > 0 && (
-                    <div className={`grid gap-0.5 ${currentMenu.media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                      {currentMenu.media.map((media, i) => (
-                        <div key={i} className={`relative bg-black/50 ${currentMenu.media.length === 1 ? 'aspect-video' : 'aspect-square'} overflow-hidden`}>
-                            {media.type === 'image' && <img src={media.previewUrl || media.url} className="w-full h-full object-cover" />}
-                            {media.type === 'video' && <video src={media.previewUrl || media.url} className="w-full h-full object-cover" />}
-                            {media.type === 'audio' && <div className="w-full h-full flex flex-col items-center justify-center text-white/70"><Music size={24}/><span className="text-[10px] mt-1">Audio</span></div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {/* Text */}
-                  <div className="p-3 text-white text-sm whitespace-pre-wrap dir-rtl text-right leading-relaxed">
-                     {currentMenu.content || '...'}
-                  </div>
-                  <div className="px-3 pb-1 text-right"><span className="text-[10px] text-white/40">14:05</span></div>
-               </div>
-               
-               {/* Buttons */}
-                <div className="max-w-[95%] space-y-[2px] animate-slide-up">
-                  {currentMenu.rows.map((row) => (
-                    <div key={row.id} className="flex gap-[2px] w-full">
-                      {row.buttons.map((btn) => (
-                        <button 
-                          key={btn.id} 
-                          onClick={() => handlePreviewAction(btn)}
-                          className={`
-                            flex-1 text-xs py-2.5 px-1 rounded-[4px] text-center cursor-pointer transition-all duration-200 truncate font-medium relative select-none border border-transparent
-                            ${btn.color === 'blue' 
-                              ? 'bg-blue-600/30 hover:bg-blue-600/50 active:bg-blue-600/70 text-blue-100 border-blue-500/20' 
-                              : btn.color === 'green'
-                              ? 'bg-emerald-600/30 hover:bg-emerald-600/50 active:bg-emerald-600/70 text-emerald-100 border-emerald-500/20'
-                              : btn.color === 'red'
-                              ? 'bg-red-600/30 hover:bg-red-600/50 active:bg-red-600/70 text-red-100 border-red-500/20'
-                              : btn.color === 'gold'
-                              ? 'bg-amber-500/35 hover:bg-amber-500/55 active:bg-amber-500/75 text-amber-200 border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.2)]'
-                              : btn.color === 'orange'
-                              ? 'bg-orange-600/30 hover:bg-orange-600/50 active:bg-orange-600/70 text-orange-100 border-orange-500/20'
-                              : 'bg-[#2b5278]/20 hover:bg-[#2b5278]/40 active:bg-[#2b5278]/60 text-white'
-                            }
-                          `}
-                        >
-                          {btn.condition?.type && btn.condition.type !== 'none' && (
-                            <span className="text-amber-400 font-bold ml-1 inline-block" title="دکمه شرطی">⚡</span>
-                          )}
-                          {getButtonDisplayText(btn)}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                  
-                  {/* Auto Nav Injection in Preview */}
-                  {currentMenu.id !== 'root' && (
-                      <div className="flex gap-[2px] w-full">
-                          <button onClick={() => navigateTo('root')} className="flex-1 bg-[#2b5278]/20 hover:bg-[#2b5278]/40 text-white text-xs py-2.5 px-1 rounded-[4px] text-center">🏠 منوی اصلی</button>
-                          <button onClick={navigateBack} className="flex-1 bg-[#2b5278]/20 hover:bg-[#2b5278]/40 text-white text-xs py-2.5 px-1 rounded-[4px] text-center">🔙 بازگشت</button>
-                      </div>
-                  )}
-                  </div>
-               </div>
-         </div>
-      </div>
+         <MenuContentEditorCard
+           currentMenu={currentMenu}
+           currentMenuId={currentMenuId}
+           updateMenu={updateMenu}
+           insertVariable={insertVariable}
+           handleSuggest={handleSuggest}
+           loadingSuggestions={loadingSuggestions}
+           isUploading={isUploading}
+           handleMediaUpload={handleMediaUpload}
+           removeMedia={removeMedia}
+         />
+         
+         <MenuButtonsCard
+           addRow={addRow}
+           addSupportButton={addSupportButton}
+           currentMenu={currentMenu}
+           currentMenuId={currentMenuId}
+           moveRowUp={moveRowUp}
+           moveRowDown={moveRowDown}
+           setSelectedButton={setSelectedButton}
+           selectedButton={selectedButton}
+           getButtonDisplayText={getButtonDisplayText}
+           duplicateRow={duplicateRow}
+           removeRow={removeRow}
+         />
+         
+         <ButtonPropertiesCard
+           selectedButton={selectedButton}
+           getSelectedBtnObj={getSelectedBtnObj}
+           removeButton={removeButton}
+           getButtonDisplayText={getButtonDisplayText}
+           updateCurrentButton={updateCurrentButton}
+           getProducts={getProducts}
+           navigateTo={navigateTo}
+           setEditingFormId={setEditingFormId}
+           setIsNewProductModalOpen={setIsNewProductModalOpen}
+           getDisplayableImageUrl={getDisplayableImageUrl}
+           isUploading={isUploading}
+           handleCatalogUpload={handleCatalogUpload}
+           updateInquiryConfig={updateInquiryConfig}
+         />
+       </div>
+       
+       <LiveSimulatorPreview
+         currentMenu={currentMenu}
+         handlePreviewAction={handlePreviewAction}
+         getButtonDisplayText={getButtonDisplayText}
+         navigateTo={navigateTo}
+         navigateBack={navigateBack}
+       />
 
-    </div>
-  );
+     </div>
+   );
 };
+
+
+export default KeyboardBuilder;
