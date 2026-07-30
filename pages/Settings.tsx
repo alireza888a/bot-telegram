@@ -1,14 +1,18 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { GlassCard } from '../components/GlassCard';
-import { 
-    Save, Database, Download, Upload, RefreshCcw, Server, 
-    ShieldCheck, AlertTriangle, FileJson, CheckCircle, HardDrive, Link as LinkIcon, RefreshCw, Info, X, CreditCard, UserCog, MessageSquareCode, AppWindow, LayoutGrid, Image as ImageIcon, Plus, Trash2, Loader2, Bell
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Server, CheckCircle, AlertTriangle } from 'lucide-react';
 import { telegramService } from '../services/telegramService';
 import { syncNow } from '../services/cloudSync';
 import { MiniAppModule, GalleryImage } from '../types';
-import { getDisplayableImageUrl } from '../utils/image';
+
+import { DatabaseChannelCard } from '../components/settings/DatabaseChannelCard';
+import { BackupRestoreCard } from '../components/settings/BackupRestoreCard';
+import { PaymentSettingsCard } from '../components/settings/PaymentSettingsCard';
+import { AdminSupportCard } from '../components/settings/AdminSupportCard';
+import { PostConfirmMenuCard } from '../components/settings/PostConfirmMenuCard';
+import { MiniAppModulesCard } from '../components/settings/MiniAppModulesCard';
+import { GalleryManagementCard } from '../components/settings/GalleryManagementCard';
+import { FactoryResetModal } from '../components/settings/FactoryResetModal';
+import { RestoreBackupModal } from '../components/settings/RestoreBackupModal';
 
 export const Settings: React.FC = () => {
     const [token, setToken] = useState(localStorage.getItem('bot_token') || '');
@@ -418,62 +422,18 @@ export const Settings: React.FC = () => {
             )}
             
             {/* Modal for Factory Reset */}
-            {showResetModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-                    <div className="bg-slate-900 border border-red-500/30 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
-                        <div className="flex items-center gap-3 text-red-500 mb-4 bg-red-500/10 p-3 rounded-xl w-fit">
-                            <AlertTriangle size={24} />
-                        </div>
-                        <h3 className="text-lg font-bold text-white mb-2">بازگشت به تنظیمات کارخانه</h3>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                            آیا مطمئن هستید؟ تمام کانال‌ها، منوها، پیام‌ها و تنظیمات <b>برای همیشه</b> پاک خواهند شد و این عملیات غیرقابل بازگشت است.
-                        </p>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={confirmFactoryReset}
-                                className="flex-1 bg-red-600 hover:bg-red-500 text-white rounded-xl py-2.5 text-sm font-medium transition-colors"
-                            >
-                                بله، پاکسازی شود
-                            </button>
-                            <button 
-                                onClick={() => setShowResetModal(false)}
-                                className="flex-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl py-2.5 text-sm font-medium transition-colors"
-                            >
-                                انصراف
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <FactoryResetModal
+                showResetModal={showResetModal}
+                confirmFactoryReset={confirmFactoryReset}
+                setShowResetModal={setShowResetModal}
+            />
 
             {/* Modal for Restore Backup */}
-            {showRestoreModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-                    <div className="bg-slate-900 border border-blue-500/30 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
-                        <div className="flex items-center gap-3 text-blue-500 mb-4 bg-blue-500/10 p-3 rounded-xl w-fit">
-                            <RefreshCw size={24} />
-                        </div>
-                        <h3 className="text-lg font-bold text-white mb-2">بازگردانی اطلاعات</h3>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                            با بازگردانی نسخه پشتیبان، <b>تمام اطلاعات فعلی شما پاک شده و توسط فایل جدید جایگزین می‌شود.</b> آیا از این کار مطمئنید؟
-                        </p>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={confirmRestore}
-                                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-2.5 text-sm font-medium transition-colors"
-                            >
-                                بازگردانی
-                            </button>
-                            <button 
-                                onClick={cancelRestore}
-                                className="flex-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl py-2.5 text-sm font-medium transition-colors"
-                            >
-                                انصراف
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <RestoreBackupModal
+                showRestoreModal={showRestoreModal}
+                confirmRestore={confirmRestore}
+                cancelRestore={cancelRestore}
+            />
 
             <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 bg-blue-600/20 rounded-xl text-blue-400">
@@ -486,398 +446,61 @@ export const Settings: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
                 {/* 1. DATABASE CHANNEL CONFIG */}
-                <GlassCard className="border-t-4 border-t-purple-500">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Database className="text-purple-400"/>
-                        <h3 className="font-bold text-lg dark:text-white text-slate-800">کانال دیتابیس (فضای نامحدود)</h3>
-                    </div>
-                    
-                    <div className="text-sm text-slate-400 mb-6 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
-                        <p className="mb-2">⚠️ برای جلوگیری از پر شدن حافظه مرورگر، تمام عکس‌ها و فیلم‌ها باید در یک <b>کانال خصوصی تلگرام</b> ذخیره شوند.</p>
-                        <ol className="list-decimal list-inside space-y-1 text-slate-300">
-                            <li>یک کانال خصوصی بسازید.</li>
-                            <li>ربات خود را در آن کانال <b>ادمین</b> کنید (دسترسی پست).</li>
-                            <li><b>آیدی عددی</b> کانال (شروع با -100) را وارد کنید.</li>
-                        </ol>
-                        <div className="mt-2 flex items-start gap-1 text-[10px] text-blue-300 bg-blue-500/10 p-2 rounded">
-                            <Info size={14} className="shrink-0 mt-0.5"/>
-                            <span>نکته: لینک‌های دعوت (t.me/+) کار نمی‌کنند. آیدی عددی را از تلگرام وب یا @username_to_id_bot پیدا کنید.</span>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <label className="block text-xs text-slate-500">آیدی عددی (-100...) یا یوزرنیم (@)</label>
-                        <div className="flex gap-2">
-                            <input 
-                                value={dbChannel}
-                                onChange={(e) => setDbChannel(e.target.value)}
-                                placeholder="-100123456789 یا @MyPublicChannel"
-                                className="flex-1 bg-black/20 border border-white/10 rounded-xl p-3 text-white dir-ltr text-left font-mono outline-none focus:border-purple-500 transition-colors"
-                                dir="ltr"
-                            />
-                            <button 
-                                onClick={handleSaveDb}
-                                disabled={isCheckingDb || !dbChannel}
-                                className={`px-4 rounded-xl flex items-center justify-center disabled:opacity-50 transition-colors ${dbStatus === 'success' ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-500'} text-white`}
-                            >
-                                {isCheckingDb ? <RefreshCw className="animate-spin"/> : <CheckCircle/>}
-                            </button>
-                        </div>
-                        
-                        {/* Status Message (If Check clicked) */}
-                        {statusMsg && (
-                            <div className={`text-xs p-3 rounded-lg flex items-center gap-2 ${dbStatus === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : (dbStatus === 'error' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-blue-500/10 text-blue-400')}`}>
-                                {dbStatus === 'error' && <AlertTriangle size={14}/>}
-                                {statusMsg}
-                            </div>
-                        )}
-                        
-                        {/* Persistent Success Indicator (If loaded from storage) */}
-                        {dbStatus === 'success' && !statusMsg && (
-                            <div className="flex items-center gap-2 text-[10px] text-green-400 bg-green-500/10 p-2 rounded border border-green-500/20 mt-2">
-                                <LinkIcon size={12}/>
-                                <span>کانال متصل است و در حافظه ذخیره شده.</span>
-                            </div>
-                        )}
-                    </div>
-                </GlassCard>
+                <DatabaseChannelCard
+                    dbChannel={dbChannel}
+                    setDbChannel={setDbChannel}
+                    handleSaveDb={handleSaveDb}
+                    isCheckingDb={isCheckingDb}
+                    dbStatus={dbStatus}
+                    statusMsg={statusMsg}
+                />
 
                 {/* 2. BACKUP & RESTORE */}
-                <GlassCard className="border-t-4 border-t-blue-500">
-                    <div className="flex items-center gap-2 mb-4">
-                        <HardDrive className="text-blue-400"/>
-                        <h3 className="font-bold text-lg dark:text-white text-slate-800">مدیریت داده‌ها (پشتیبان‌گیری)</h3>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4">
-                        <button 
-                            onClick={handleBackup}
-                            className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-green-500/20 text-green-400 rounded-lg group-hover:scale-110 transition-transform"><Download size={20}/></div>
-                                <div className="text-right">
-                                    <div className="font-bold dark:text-white text-slate-800">دانلود فایل پشتیبان</div>
-                                    <div className="text-[10px] text-slate-500">فرمت JSON شامل تمام تنظیمات</div>
-                                </div>
-                            </div>
-                            <FileJson size={20} className="text-slate-600"/>
-                        </button>
-
-                        <label className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group cursor-pointer">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg group-hover:scale-110 transition-transform"><Upload size={20}/></div>
-                                <div className="text-right">
-                                    <div className="font-bold dark:text-white text-slate-800">بازگردانی اطلاعات</div>
-                                    <div className="text-[10px] text-slate-500">آپلود فایل JSON و جایگزینی</div>
-                                </div>
-                            </div>
-                            <input type="file" accept=".json" onChange={handleFileSelect} className="hidden" />
-                            <FileJson size={20} className="text-slate-600"/>
-                        </label>
-                    </div>
-
-                    <div className="mt-8 pt-6 border-t border-white/5">
-                        <button 
-                            onClick={handleFactoryReset}
-                            className="w-full py-3 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors"
-                        >
-                            <AlertTriangle size={16}/>
-                            بازگشت به تنظیمات کارخانه (پاکسازی کامل)
-                        </button>
-                    </div>
-                </GlassCard>
+                <BackupRestoreCard
+                    handleBackup={handleBackup}
+                    handleFileSelect={handleFileSelect}
+                    handleFactoryReset={handleFactoryReset}
+                />
 
                 {/* 3. CARD PAYMENT SETTINGS */}
-                <GlassCard className="border-t-4 border-t-yellow-500">
-                    <div className="flex items-center gap-2 mb-4">
-                        <CreditCard className="text-yellow-400"/>
-                        <h3 className="font-bold text-lg dark:text-white text-slate-800">اطلاعات پرداخت کارت‌به‌کارت (فروشگاه)</h3>
-                    </div>
-                    
-                    <div className="text-sm text-slate-400 mb-6 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
-                        <p>شماره کارت و نام صاحب حساب بانکی خود را جهت نمایش به کاربران ربات تلگرام در مرحله ثبت سفارش و تسویه حساب دستی وارد نمایید.</p>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs text-slate-500 mb-1.5">شماره ۱۶ رقمی کارت بانکی</label>
-                            <input 
-                                value={cardNumber}
-                                onChange={(e) => setCardNumber(e.target.value)}
-                                placeholder="مثال: ۶۰۳۷۹۹۱۸۱۲۳۴۵۶۷۸"
-                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white dir-ltr text-left font-mono outline-none focus:border-yellow-500 transition-colors"
-                                dir="ltr"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs text-slate-500 mb-1.5">نام و نام خانوادگی صاحب حساب</label>
-                            <input 
-                                value={cardOwner}
-                                onChange={(e) => setCardOwner(e.target.value)}
-                                placeholder="مثال: علی جلالی"
-                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-yellow-500 transition-colors"
-                            />
-                        </div>
-                    </div>
-                </GlassCard>
+                <PaymentSettingsCard
+                    cardNumber={cardNumber}
+                    setCardNumber={setCardNumber}
+                    cardOwner={cardOwner}
+                    setCardOwner={setCardOwner}
+                />
 
                 {/* 4. ADMIN & SUPPORT CHAT ID SETTINGS */}
-                <GlassCard className="border-t-4 border-t-emerald-500">
-                    <div className="flex items-center gap-2 mb-4">
-                        <UserCog className="text-emerald-400"/>
-                        <h3 className="font-bold text-lg dark:text-white text-slate-800">اعلان سفارش‌ها و پشتیبانی ادمین</h3>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-1.5">آیدی عددی ادمین (اختیاری)</label>
-                            <input 
-                                value={adminChatId}
-                                onChange={(e) => setAdminChatId(e.target.value)}
-                                placeholder="مثال: 123456789"
-                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white dir-ltr text-left font-mono outline-none focus:border-emerald-500 transition-colors"
-                                dir="ltr"
-                            />
-                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                                اگه این رو پر کنی، هر سفارش جدید (با عکس فیش پرداخت) مستقیم به همین آیدی عددی توی تلگرام هم ارسال میشه — جدا از کانال دیتابیس، حتی اگه کانالی تنظیم نکرده باشی.
-                            </p>
-                        </div>
-
-                        <div className="pt-4 border-t border-white/5 space-y-3">
-                            <label className="block text-xs font-bold text-slate-300 mb-1.5">آیدی عددی پشتیبانی (اختیاری)</label>
-                            <input 
-                                value={supportChatId}
-                                onChange={(e) => setSupportChatId(e.target.value)}
-                                placeholder="مثال: 987654321"
-                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white dir-ltr text-left font-mono outline-none focus:border-emerald-500 transition-colors"
-                                dir="ltr"
-                            />
-                            <p className="text-xs text-slate-400 leading-relaxed">
-                                وقتی خریدارهای ربات دستور /support رو بزنن یا دکمه‌ی پشتیبانی رو لمس کنن، پیامشون مستقیم به همین آیدی میرسه — جدا از اعلان سفارش‌ها. اگه خالی بمونه، همون آیدی عددی ادمین استفاده میشه.
-                            </p>
-
-                            <button
-                                type="button"
-                                onClick={addSupportButtonToRootMenu}
-                                className="px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-medium text-xs rounded-xl transition-all flex items-center justify-center gap-2 mt-2 w-full md:w-auto"
-                            >
-                                <Plus size={16} />
-                                <span>افزودن دکمه‌ی پشتیبانی به منوی اصلی</span>
-                            </button>
-                        </div>
-                    </div>
-                </GlassCard>
+                <AdminSupportCard
+                    adminChatId={adminChatId}
+                    setAdminChatId={setAdminChatId}
+                    supportChatId={supportChatId}
+                    setSupportChatId={setSupportChatId}
+                    addSupportButtonToRootMenu={addSupportButtonToRootMenu}
+                />
 
                 {/* 5. POST CONFIRM MENU SETTINGS */}
-                <GlassCard className="border-t-4 border-t-blue-500">
-                    <div className="flex items-center gap-2 mb-4">
-                        <MessageSquareCode className="text-blue-400"/>
-                        <h3 className="font-bold text-lg dark:text-white text-slate-800">پیام بعد از تایید سفارش</h3>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-1.5">انتخاب منوی ارسال خودکار</label>
-                            <select
-                                value={postConfirmMenuId}
-                                onChange={(e) => setPostConfirmMenuId(e.target.value)}
-                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors cursor-pointer"
-                            >
-                                <option value="" className="bg-slate-900 text-slate-300">هیچکدام (پیش‌فرض)</option>
-                                {Object.entries(getKbMenus()).map(([id, menu]) => (
-                                    <option key={id} value={id} className="bg-slate-900 text-white">
-                                        {menu.title || menu.content || id} ({id})
-                                    </option>
-                                ))}
-                            </select>
-                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                                وقتی سفارشی رو از صفحهی سفارشها تایید میکنی، علاوه بر پیام تایید، این منو (با هر متن، عکس، دکمه یا لینکی که توش گذاشتی) هم مستقیم برای خریدار ارسال میشه — مثلاً لینک دانلود، دکمهی پیگیری سفارش، یا راهنمای استفاده.
-                            </p>
-                        </div>
-                    </div>
-                </GlassCard>
+                <PostConfirmMenuCard
+                    postConfirmMenuId={postConfirmMenuId}
+                    setPostConfirmMenuId={setPostConfirmMenuId}
+                    getKbMenus={getKbMenus}
+                />
 
                 {/* 6. MINI APP MODULES SETTINGS */}
-                <GlassCard className="border-t-4 border-t-indigo-500">
-                    <div className="flex items-center gap-2 mb-4">
-                        <AppWindow className="text-indigo-400"/>
-                        <h3 className="font-bold text-lg dark:text-white text-slate-800">ماژول‌های اپلیکیشن فروشگاه (Mini App)</h3>
-                    </div>
-
-                    <p className="text-xs text-slate-400 mb-5 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
-                        هر ماژولی که تیک بزنی، به‌عنوان یه تب داخل Mini App مشتری‌هات ظاهر میشه.
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label 
-                            onClick={() => toggleMiniAppModule('shop')}
-                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                miniappModules.includes('shop') 
-                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
-                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
-                            }`}
-                        >
-                            <input 
-                                type="checkbox" 
-                                checked={miniappModules.includes('shop')}
-                                onChange={() => {}}
-                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
-                            />
-                            <span className="text-sm font-bold">🛍 فروشگاه</span>
-                        </label>
-
-                        <label 
-                            onClick={() => toggleMiniAppModule('orders')}
-                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                miniappModules.includes('orders') 
-                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
-                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
-                            }`}
-                        >
-                            <input 
-                                type="checkbox" 
-                                checked={miniappModules.includes('orders')}
-                                onChange={() => {}}
-                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
-                            />
-                            <span className="text-sm font-bold">📦 سوابق سفارش‌ها</span>
-                        </label>
-
-                        <label 
-                            onClick={() => toggleMiniAppModule('support')}
-                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                miniappModules.includes('support') 
-                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
-                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
-                            }`}
-                        >
-                            <input 
-                                type="checkbox" 
-                                checked={miniappModules.includes('support')}
-                                onChange={() => {}}
-                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
-                            />
-                            <span className="text-sm font-bold">💬 پشتیبانی</span>
-                        </label>
-
-                        <label 
-                            onClick={() => toggleMiniAppModule('forms')}
-                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                miniappModules.includes('forms') 
-                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
-                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
-                            }`}
-                        >
-                            <input 
-                                type="checkbox" 
-                                checked={miniappModules.includes('forms')}
-                                onChange={() => {}}
-                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
-                            />
-                            <span className="text-sm font-bold">📝 فرم‌ها</span>
-                        </label>
-
-                        <label 
-                            onClick={() => toggleMiniAppModule('gallery')}
-                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                miniappModules.includes('gallery') 
-                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
-                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
-                            }`}
-                        >
-                            <input 
-                                type="checkbox" 
-                                checked={miniappModules.includes('gallery')}
-                                onChange={() => {}}
-                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
-                            />
-                            <span className="text-sm font-bold">🖼 گالری</span>
-                        </label>
-
-                        <label 
-                            onClick={() => toggleMiniAppModule('announcements')}
-                            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                miniappModules.includes('announcements') 
-                                    ? 'bg-blue-600/15 border-blue-500/50 text-white' 
-                                    : 'bg-black/20 border-white/10 text-slate-400 hover:text-slate-200'
-                            }`}
-                        >
-                            <input 
-                                type="checkbox" 
-                                checked={miniappModules.includes('announcements')}
-                                onChange={() => {}}
-                                className="w-4 h-4 rounded text-blue-600 border-white/20 bg-black/40 focus:ring-0"
-                            />
-                            <span className="text-sm font-bold">🔔 اعلانات</span>
-                        </label>
-                    </div>
-                </GlassCard>
+                <MiniAppModulesCard
+                    miniappModules={miniappModules}
+                    toggleMiniAppModule={toggleMiniAppModule}
+                />
 
                 {/* 7. GALLERY MANAGEMENT */}
-                <GlassCard className="border-t-4 border-t-purple-500">
-                    <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                            <ImageIcon className="text-purple-400"/>
-                            <h3 className="font-bold text-lg dark:text-white text-slate-800">مدیریت گالری تصاویر (Mini App)</h3>
-                        </div>
-                        <label className={`cursor-pointer px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-purple-600/20 active:scale-95 ${isUploadingGallery ? 'opacity-50 pointer-events-none' : ''}`}>
-                            {isUploadingGallery ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-                            <span>افزودن عکس جدید</span>
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={handleAddGalleryImage} 
-                                className="hidden" 
-                                disabled={isUploadingGallery}
-                            />
-                        </label>
-                    </div>
-
-                    <p className="text-xs text-slate-400 mb-5 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
-                        تصاویری که اینجا اضافه می‌کنی در تب «گالری» Mini App به خریداران نمایش داده میشه.
-                    </p>
-
-                    {galleryImages.length === 0 ? (
-                        <div className="text-center py-8 border-2 border-dashed border-white/10 rounded-2xl bg-black/20 text-slate-400 text-xs">
-                            هنوز تصویری به گالری اضافه نشده است. روی «افزودن عکس جدید» کلیک کنید.
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                            {galleryImages.map((img) => (
-                                <div key={img.id} className="bg-black/30 border border-white/10 rounded-xl p-3 flex flex-col gap-2.5">
-                                    <div className="relative w-full h-36 rounded-lg bg-black/40 overflow-hidden border border-white/5 flex items-center justify-center">
-                                        {getDisplayableImageUrl(img.imageUrl) ? (
-                                            <img src={getDisplayableImageUrl(img.imageUrl)!} alt={img.caption || 'گالری'} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center text-slate-500 gap-1">
-                                                <ImageIcon size={24} />
-                                                <span className="text-[10px] text-slate-400">تصویر غیرقابل نمایش</span>
-                                            </div>
-                                        )}
-                                        <button 
-                                            onClick={() => handleDeleteGalleryImage(img.id)}
-                                            className="absolute top-2 left-2 p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors shadow-md"
-                                            title="حذف عکس"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                    <input 
-                                        type="text" 
-                                        value={img.caption || ''} 
-                                        onChange={(e) => handleUpdateGalleryCaption(img.id, e.target.value)}
-                                        placeholder="توضیح اختیاری برای این عکس..."
-                                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </GlassCard>
+                <GalleryManagementCard
+                    galleryImages={galleryImages}
+                    isUploadingGallery={isUploadingGallery}
+                    handleAddGalleryImage={handleAddGalleryImage}
+                    handleUpdateGalleryCaption={handleUpdateGalleryCaption}
+                    handleDeleteGalleryImage={handleDeleteGalleryImage}
+                />
             </div>
         </div>
     );
