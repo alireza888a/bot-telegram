@@ -729,27 +729,56 @@ export const KeyboardBuilder: React.FC = () => {
   };
 
     const handleCatalogUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          const file = e.target.files[0];
-          setIsUploading(true);
-          
-          if (!dbChannel || !token) {
-              alert("برای استفاده از این قابلیت، ابتدا باید کانال دیتابیس را در تنظیمات وصل کنید.");
-              setIsUploading(false);
-              return;
-          }
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setIsUploading(true);
 
-          const res = await telegramService.uploadMediaToChannel(token, dbChannel, file);
-          setIsUploading(false);
+            if (!dbChannel || !token) {
+                alert("برای استفاده از این قابلیت، ابتدا باید کانال دیتابیس را در تنظیمات وصل کنید.");
+                setIsUploading(false);
+                return;
+            }
 
-          if (res.success && res.fileId) {
-              updateInquiryConfig({ catalogFileId: res.fileId });
-              alert("کاتالوگ با موفقیت در دیتابیس آپلود و ذخیره شد.");
-          } else {
-              alert("خطا در آپلود کاتالوگ: " + (res.error || "ناشناخته"));
-          }
-          e.target.value = "";
-      }
+            try {
+                // Usually catalogs are PDFs (Documents) or Images
+                const type = file.type.includes('image') ? 'image' : 'document';
+                const fileId = await telegramService.uploadToDb(token, dbChannel, file, type);
+
+                if (fileId) {
+                    updateInquiryConfig({
+                        catalogFileId: fileId,
+                        catalogFileName: file.name,
+                        catalogType: type
+                    });
+                } else {
+                    alert('آپلود فایل در کانال دیتابیس با خطا مواجه شد.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('خطا در ارتباط با تلگرام.');
+            }
+            setIsUploading(false);
+            e.target.value = '';
+        }
+    };
+
+  const removeMedia = (id: string) => {
+    updateMenu(currentMenuId, { media: currentMenu.media.filter(m => m.id !== id) });
+  };
+
+  const handleSuggest = async () => {
+    if (!currentMenu.content) return;
+    setLoadingSuggestions(true);
+    const result = await suggestButtonLabels(currentMenu.content);
+    if(result.length > 0) {
+        const btns = result.slice(0, 2).map((text, i) => ({
+             id: Date.now() + i + '', text, type: 'callback' as const
+        }));
+        updateMenu(currentMenuId, {
+            rows: [...currentMenu.rows, { id: Date.now().toString(), buttons: btns }]
+        });
+    }
+    setLoadingSuggestions(false);
   };
 
   return (
@@ -804,15 +833,12 @@ export const KeyboardBuilder: React.FC = () => {
       />
 
       <MenuSidebar
-        show={showMenuSidebar}
-        onClose={() => setShowMenuSidebar(false)}
+        showMenuSidebar={showMenuSidebar}
+        setShowMenuSidebar={setShowMenuSidebar}
         menus={menus}
         currentMenuId={currentMenuId}
-        onSelectMenu={(id) => {
-          setCurrentMenuId(id);
-          setShowMenuSidebar(false);
-          setHistory([]);
-        }}
+        setCurrentMenuId={setCurrentMenuId}
+        setHistory={setHistory}
       />
       
       {/* --- EDITOR COLUMN --- */}
@@ -902,6 +928,7 @@ export const KeyboardBuilder: React.FC = () => {
            isUploading={isUploading}
            handleMediaUpload={handleMediaUpload}
            removeMedia={removeMedia}
+           DYNAMIC_VARS={DYNAMIC_VARS}
          />
          
          <MenuButtonsCard
@@ -928,7 +955,6 @@ export const KeyboardBuilder: React.FC = () => {
            navigateTo={navigateTo}
            setEditingFormId={setEditingFormId}
            setIsNewProductModalOpen={setIsNewProductModalOpen}
-           getDisplayableImageUrl={getDisplayableImageUrl}
            isUploading={isUploading}
            handleCatalogUpload={handleCatalogUpload}
            updateInquiryConfig={updateInquiryConfig}
